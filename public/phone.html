@@ -23,7 +23,18 @@
     <div class="phone-avatar" id="my-avatar"></div>
     <h1>You're In!</h1>
     <p class="waiting-msg" id="waiting-name"></p>
-    <p class="status">Waiting for the game to start...</p>
+    <!-- Host controls in lobby -->
+    <div id="host-lobby-controls" class="host-controls hidden">
+      <p class="host-label">You're the host!</p>
+      <div class="phone-round-picker">
+        <button class="phone-round-option" data-rounds="5">Quick<br><span>~8 min</span></button>
+        <button class="phone-round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>
+        <button class="phone-round-option" data-rounds="15">Long<br><span>~22 min</span></button>
+      </div>
+      <button class="btn-host" id="btn-host-start" disabled>Start Game</button>
+      <p class="status" id="host-lobby-status">Waiting for players...</p>
+    </div>
+    <p class="status" id="non-host-status">Waiting for the game to start...</p>
   </div>
 
   <!-- ANSWER PROMPT -->
@@ -63,6 +74,7 @@
     <div class="phone-results" id="phone-results"></div>
     <p class="status" id="phone-score" style="margin-top:1rem; font-size:1.4rem; color:#667eea; font-weight:bold;"></p>
     <div class="phone-scoreboard" id="phone-scoreboard"></div>
+    <button class="btn-host host-only hidden" id="btn-host-next" style="margin-top:1rem;">Next Round</button>
   </div>
 
   <!-- GAME OVER -->
@@ -71,6 +83,7 @@
     <p class="phone-rank" id="final-rank"></p>
     <p class="status" id="final-score"></p>
     <div class="phone-scoreboard" id="final-phone-scoreboard"></div>
+    <button class="btn-host host-only hidden" id="btn-host-again" style="margin-top:1rem;">Play Again</button>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -79,6 +92,7 @@
     let myId = null;
     let phoneTimer = null;
     let hasSubmitted = false;
+    let isHost = false;
 
     // Haptic feedback
     function vibrate(pattern) {
@@ -124,9 +138,21 @@
     socket.on('joined', (data) => {
       document.getElementById('waiting-name').textContent = `Welcome, ${data.name}!`;
       document.getElementById('my-avatar').textContent = data.avatar;
+      if (data.isHost) setHost();
       vibrate(100);
       showScreen('waiting');
     });
+
+    // Host assigned (transferred from disconnected host)
+    socket.on('host-assigned', () => { setHost(); });
+
+    function setHost() {
+      isHost = true;
+      document.getElementById('host-lobby-controls').classList.remove('hidden');
+      document.getElementById('non-host-status').classList.add('hidden');
+      // Show host buttons on results/gameover if those screens are visible
+      document.querySelectorAll('.host-only').forEach(el => el.classList.remove('hidden'));
+    }
 
     socket.on('error-msg', (msg) => {
       document.getElementById('join-error').textContent = msg;
@@ -246,6 +272,12 @@
 
           // Show scoreboard on phone
           renderPhoneScoreboard('phone-scoreboard', data.scoreboard);
+
+          // Host: update next round button text
+          if (isHost) {
+            const nextBtn = document.getElementById('btn-host-next');
+            nextBtn.textContent = data.round >= data.totalRounds ? 'Final Scores' : 'Next Round';
+          }
           break;
 
         case 'gameover':
@@ -284,6 +316,42 @@
 
     socket.on('vote-received', () => {
       showScreen('voted');
+    });
+
+    // Host: update start button when player count changes
+    socket.on('player-update', (players) => {
+      if (!isHost) return;
+      const btn = document.getElementById('btn-host-start');
+      btn.disabled = players.length < 2;
+      document.getElementById('host-lobby-status').textContent =
+        players.length < 2
+          ? `Need at least 2 players (${players.length} joined)`
+          : `${players.length} players ready!`;
+    });
+
+    // Host: round picker
+    let selectedRounds = 10;
+    document.querySelectorAll('.phone-round-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.phone-round-option').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedRounds = parseInt(btn.dataset.rounds);
+      });
+    });
+
+    // Host: start game
+    document.getElementById('btn-host-start').addEventListener('click', () => {
+      socket.emit('start-game', selectedRounds);
+    });
+
+    // Host: next round
+    document.getElementById('btn-host-next').addEventListener('click', () => {
+      socket.emit('next-round');
+    });
+
+    // Host: play again
+    document.getElementById('btn-host-again').addEventListener('click', () => {
+      socket.emit('play-again');
     });
 
     // Helpers

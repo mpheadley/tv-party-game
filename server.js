@@ -108,6 +108,7 @@ let game = {
   votes: {},            // { voterSocketId: answererSocketId }
   usedPrompts: [],
   tvSocket: null,
+  hostSocket: null,     // first player to join becomes host
   roundTimer: null,
 };
 
@@ -344,14 +345,20 @@ io.on('connection', (socket) => {
 
     const avatar = pickAvatar();
     game.players[socket.id] = { name: cleanName, score: 0, avatar };
-    socket.emit('joined', { name: cleanName, avatar });
+
+    // First player becomes host
+    const isHost = !game.hostSocket;
+    if (isHost) game.hostSocket = socket.id;
+
+    socket.emit('joined', { name: cleanName, avatar, isHost });
     io.emit('player-update', getPlayerList());
     io.emit('sound', 'join');
-    console.log(`${avatar} ${cleanName} joined`);
+    console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}`);
   });
 
-  // Start game (from TV)
+  // Start game (from TV or host phone)
   socket.on('start-game', (rounds) => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
     if (Object.keys(game.players).length < 2) {
       socket.emit('error-msg', 'Need at least 2 players!');
       return;
@@ -415,8 +422,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Next round (from TV)
+  // Next round (from TV or host phone)
   socket.on('next-round', () => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
     if (game.round >= game.totalRounds) {
       endGame();
     } else {
@@ -425,8 +433,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Play again
+  // Play again (from TV or host phone)
   socket.on('play-again', () => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
     resetGame();
     io.emit('phase', { phase: 'lobby' });
     io.emit('player-update', getPlayerList());
@@ -458,6 +467,17 @@ io.on('connection', (socket) => {
     }
     if (socket.id === game.tvSocket) {
       game.tvSocket = null;
+    }
+    // Transfer host to next player if host disconnected
+    if (socket.id === game.hostSocket) {
+      const remainingIds = Object.keys(game.players);
+      if (remainingIds.length > 0) {
+        game.hostSocket = remainingIds[0];
+        io.to(game.hostSocket).emit('host-assigned');
+        console.log(`Host transferred to ${game.players[game.hostSocket].name}`);
+      } else {
+        game.hostSocket = null;
+      }
     }
   });
 });

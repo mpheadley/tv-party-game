@@ -454,23 +454,16 @@
     socket.on('player-update', (players) => {
       const takenAvatars = players.map(p => p.avatar);
 
-      // If our selected avatar was taken by someone else, auto-pick first available
-      if (takenAvatars.includes(selectedAvatar)) {
-        const firstAvailable = AVATARS.find(a => !takenAvatars.includes(a));
-        if (firstAvailable) {
-          selectedAvatar = firstAvailable;
-          emojiPicker.querySelectorAll('.emoji-option').forEach(b => {
-            b.classList.toggle('selected', b.textContent === firstAvailable);
-          });
-        }
-      }
-
-      // Grey out taken avatars in the picker
+      // Grey out taken avatars — player picks a new one themselves
       emojiPicker.querySelectorAll('.emoji-option').forEach(btn => {
         const emoji = btn.textContent;
-        const isTaken = takenAvatars.includes(emoji) && emoji !== selectedAvatar;
+        const isTaken = takenAvatars.includes(emoji);
         btn.classList.toggle('taken', isTaken);
         btn.disabled = isTaken;
+        // Remove selected ring if their pick was taken
+        if (isTaken && emoji === selectedAvatar) {
+          btn.classList.remove('selected');
+        }
       });
 
       // Host: update start button

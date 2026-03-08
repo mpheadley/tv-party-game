@@ -120,6 +120,28 @@ const PROMPTS = [
   "Your stomach just started a podcast. What's episode one about?",
   "Write a formal complaint about someone in this room WITHOUT naming them.",
   "What would the FBI agent watching your screen write in their report?",
+
+  // 2025-2026 brainrot / chronically online
+  "This answer is giving delulu. Write your most unhinged hot take.",
+  "You're the main character today. What's your villain origin story?",
+  "That's cap. What's the biggest lie you've ever gotten away with?",
+  "Drop your most 'no thoughts, just vibes' moment.",
+  "You just got the ick. What happened?",
+  "Your rizz level is zero. Write your worst pickup line.",
+  "Write something that would make everyone say 'bro cooked too hard.'",
+  "POV: you're explaining your screen time to a therapist. What do you say?",
+  "You're in your flop era. Describe it.",
+  "Write something so unhinged it lives rent-free in everyone's head.",
+  "Name something that's lowkey a red flag but you do it anyway.",
+  "What's the most NPC thing you've ever done?",
+  "You've been put on blast. What for?",
+  "Write a text that radiates 'I woke up and chose chaos' energy.",
+  "What would your Roman Empire be? (The thing you think about constantly.)",
+  "Rate your family's group chat out of 10 and explain.",
+  "What's the most 'slay' thing you've ever done? Be honest.",
+  "You're a side quest NPC. What mission do you give people?",
+  "Write a BeReal caption for your most embarrassing moment.",
+  "What's your biggest 'it's giving...' moment?",
 ];
 
 const SNARKY_COMMENTARY = [
@@ -138,6 +160,16 @@ const SNARKY_COMMENTARY = [
   "This round sponsored by questionable life decisions.",
   "The algorithm is judging you. So am I.",
   "No thoughts, just vibes. Mostly concerning vibes.",
+  "Not gonna lie, somebody cooked here. 🔥",
+  "That was lowkey unhinged and I'm here for it.",
+  "Main character energy detected. Proceed with caution.",
+  "The delulu is strong with this group.",
+  "Bro really said that with their whole chest. 💀",
+  "Slay or be slayed. There is no in between.",
+  "This round is living rent-free in my head now.",
+  "Tell me you're chronically online without telling me.",
+  "It's giving... chaos. Pure chaos.",
+  "POV: you just witnessed a crime against comedy.",
 ];
 
 const AVATARS = [

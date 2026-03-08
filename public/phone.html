@@ -326,9 +326,6 @@
           document.getElementById('btn-submit').disabled = false;
           setTimeout(() => document.getElementById('answer-input').focus(), 100);
 
-          // Read the prompt aloud
-          speakPrompt(data.prompt);
-
           // Phone timer
           let timeLeft = data.timeLimit;
           const timerEl = document.getElementById('phone-timer');

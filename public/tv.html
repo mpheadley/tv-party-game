@@ -16,9 +16,9 @@
     <p class="join-url" id="join-url"></p>
     <div class="player-list" id="player-list"></div>
     <div class="round-picker">
-      <button class="round-option" data-rounds="5">Quick<br><span>~5 min</span></button>
-      <button class="round-option selected" data-rounds="10">Normal<br><span>~12 min</span></button>
-      <button class="round-option" data-rounds="15">Long<br><span>~20 min</span></button>
+      <button class="round-option" data-rounds="5">Quick<br><span>~8 min</span></button>
+      <button class="round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>
+      <button class="round-option" data-rounds="15">Long<br><span>~22 min</span></button>
     </div>
     <button class="btn-start" id="btn-start" disabled>Start Game</button>
     <p class="status" id="lobby-status">Waiting for players...</p>
@@ -36,6 +36,7 @@
   <!-- VOTING -->
   <div id="screen-vote" class="tv-container hidden">
     <p class="round-label">Vote for your favorite!</p>
+    <p class="prompt-reminder" id="vote-prompt-text"></p>
     <div class="answers-grid" id="tv-answers"></div>
     <div class="timer-bar"><div class="timer-fill" id="vote-timer-fill"></div></div>
     <p class="status" id="vote-status">Vote on your phones!</p>
@@ -286,6 +287,7 @@
 
         case 'vote':
           showScreen('vote');
+          document.getElementById('vote-prompt-text').textContent = data.prompt || '';
           const grid = document.getElementById('tv-answers');
           grid.innerHTML = data.answers.map((a, i) =>
             `<div class="answer-card" style="animation-delay: ${i * 0.15}s">${escapeHtml(a.text)}</div>`

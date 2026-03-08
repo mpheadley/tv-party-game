@@ -95,7 +95,7 @@ const AVATARS = [
   '🦁', '🐧', '🦖', '🐬', '🦩', '🐨', '🦝', '🐝',
 ];
 
-const ROUND_TIME = 30; // seconds
+const ROUND_TIME = 45; // seconds
 const VOTE_TIME = 20;  // seconds
 
 let game = {
@@ -191,6 +191,11 @@ function startVoting() {
   clearTimeout(game.roundTimer);
   game.phase = 'vote';
 
+  // Remove answers from players who disconnected
+  for (const id of Object.keys(game.answers)) {
+    if (!game.players[id]) delete game.answers[id];
+  }
+
   // Build anonymous answer list (shuffled)
   const answerList = Object.entries(game.answers)
     .map(([id, text]) => ({ id, text }))
@@ -201,6 +206,7 @@ function startVoting() {
     io.to(game.tvSocket).emit('phase', {
       phase: 'vote',
       answers: answerList,
+      prompt: game.currentPrompt,
       round: game.round,
       totalRounds: game.totalRounds,
       timeLimit: VOTE_TIME,
@@ -213,6 +219,7 @@ function startVoting() {
     io.to(playerId).emit('phase', {
       phase: 'vote',
       answers: filtered,
+      prompt: game.currentPrompt,
       round: game.round,
       totalRounds: game.totalRounds,
       timeLimit: VOTE_TIME,
@@ -430,7 +437,24 @@ io.on('connection', (socket) => {
     if (game.players[socket.id]) {
       console.log(`${game.players[socket.id].name} disconnected`);
       delete game.players[socket.id];
+      // Clean up any answers/votes from disconnected player
+      delete game.answers[socket.id];
+      delete game.votes[socket.id];
       io.emit('player-update', getPlayerList());
+
+      // If mid-round and everyone remaining has answered/voted, advance
+      if (game.phase === 'prompt' && checkAllAnswered() && Object.keys(game.players).length >= 2) {
+        clearTimeout(game.roundTimer);
+        startVoting();
+      } else if (game.phase === 'vote' && checkAllVoted() && Object.keys(game.players).length >= 2) {
+        tallyAndShowResults();
+      }
+
+      // If fewer than 2 players remain mid-game, end it
+      if (game.phase !== 'lobby' && Object.keys(game.players).length < 2) {
+        clearTimeout(game.roundTimer);
+        endGame();
+      }
     }
     if (socket.id === game.tvSocket) {
       game.tvSocket = null;

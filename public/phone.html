@@ -46,6 +46,8 @@
   <!-- VOTE -->
   <div id="screen-vote" class="phone-container hidden">
     <p class="phone-prompt">Vote for your favorite!</p>
+    <p class="phone-prompt-reminder" id="vote-prompt-reminder"></p>
+    <div class="phone-timer" id="vote-timer"></div>
     <div class="vote-options" id="vote-options"></div>
   </div>
 
@@ -57,8 +59,10 @@
 
   <!-- RESULTS / BETWEEN ROUNDS -->
   <div id="screen-round-end" class="phone-container hidden">
-    <p class="waiting-msg">Check the TV for results!</p>
-    <p class="status" id="phone-score"></p>
+    <p class="round-label" id="phone-round-label"></p>
+    <div class="phone-results" id="phone-results"></div>
+    <p class="status" id="phone-score" style="margin-top:1rem; font-size:1.4rem; color:#667eea; font-weight:bold;"></p>
+    <div class="phone-scoreboard" id="phone-scoreboard"></div>
   </div>
 
   <!-- GAME OVER -->
@@ -66,6 +70,7 @@
     <h1>Game Over!</h1>
     <p class="phone-rank" id="final-rank"></p>
     <p class="status" id="final-score"></p>
+    <div class="phone-scoreboard" id="final-phone-scoreboard"></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -135,7 +140,11 @@
 
       switch (data.phase) {
         case 'lobby':
-          showScreen('waiting');
+          // If we've already joined, show waiting screen
+          // Otherwise they'd need to rejoin
+          if (document.getElementById('my-avatar').textContent) {
+            showScreen('waiting');
+          }
           break;
 
         case 'prompt':
@@ -178,6 +187,7 @@
         case 'vote':
           showScreen('vote');
           vibrate(150);
+          document.getElementById('vote-prompt-reminder').textContent = data.prompt || '';
           const options = document.getElementById('vote-options');
           // Server already filtered out our own answer
           options.innerHTML = data.answers
@@ -185,12 +195,29 @@
               `<button class="vote-btn" data-id="${a.id}">${escapeHtml(a.text)}</button>`
             ).join('');
 
+          // Vote countdown on phone
+          if (data.timeLimit) {
+            let voteTimeLeft = data.timeLimit;
+            const voteTimerEl = document.getElementById('vote-timer');
+            if (voteTimerEl) {
+              voteTimerEl.textContent = voteTimeLeft + 's';
+              voteTimerEl.classList.remove('timer-urgent');
+              phoneTimer = setInterval(() => {
+                voteTimeLeft--;
+                voteTimerEl.textContent = Math.max(0, voteTimeLeft) + 's';
+                if (voteTimeLeft <= 5) voteTimerEl.classList.add('timer-urgent');
+                if (voteTimeLeft <= 0) clearInterval(phoneTimer);
+              }, 1000);
+            }
+          }
+
           // Vote click handlers
           let hasVoted = false;
           options.querySelectorAll('.vote-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               if (hasVoted) return;
               hasVoted = true;
+              clearInterval(phoneTimer);
               vibrate(80);
               socket.emit('vote', btn.dataset.id);
               options.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('selected'));
@@ -201,9 +228,24 @@
 
         case 'results':
           showScreen('roundEnd');
+          document.getElementById('phone-round-label').textContent =
+            `Round ${data.round} of ${data.totalRounds}`;
+
+          // Show results on phone
+          const resultsEl = document.getElementById('phone-results');
+          resultsEl.innerHTML = data.results.map(r =>
+            `<div class="phone-result-card">
+              <div class="phone-result-text">"${escapeHtml(r.text)}"</div>
+              <div class="phone-result-meta">${r.avatar} ${escapeHtml(r.author)} — ${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
+            </div>`
+          ).join('');
+
           const myScore = data.scoreboard.find(p => p.id === myId);
           document.getElementById('phone-score').textContent =
-            myScore ? `Your score: ${myScore.score}` : '';
+            myScore ? `Your score: ${myScore.score} pts` : '';
+
+          // Show scoreboard on phone
+          renderPhoneScoreboard('phone-scoreboard', data.scoreboard);
           break;
 
         case 'gameover':
@@ -216,6 +258,9 @@
             rank > 0 ? (rankEmoji ? `${rankEmoji} #${rank}` : `#${rank}`) : '';
           document.getElementById('final-score').textContent =
             finalMe ? `${finalMe.score} point${finalMe.score !== 1 ? 's' : ''}` : '';
+
+          // Show final scoreboard on phone
+          renderPhoneScoreboard('final-phone-scoreboard', data.scoreboard);
           break;
       }
     });
@@ -242,6 +287,16 @@
     });
 
     // Helpers
+    function renderPhoneScoreboard(elementId, scoreboard) {
+      const medals = ['🥇', '🥈', '🥉'];
+      document.getElementById(elementId).innerHTML = scoreboard.map((p, i) =>
+        `<div class="phone-score-row ${p.id === myId ? 'phone-score-me' : ''}">
+          <span>${medals[i] || ''} ${p.avatar} ${escapeHtml(p.name)}</span>
+          <span>${p.score} pts</span>
+        </div>`
+      ).join('');
+    }
+
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;

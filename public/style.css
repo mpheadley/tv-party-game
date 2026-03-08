@@ -249,6 +249,14 @@ body {
   margin-bottom: 1rem;
 }
 
+.prompt-reminder {
+  font-size: 1.6rem;
+  color: #667eea;
+  font-style: italic;
+  margin-bottom: 1rem;
+  max-width: 70vw;
+}
+
 /* Status text */
 .status {
   font-size: 1.3rem;
@@ -471,6 +479,63 @@ body {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+/* Phone prompt reminder on vote screen */
+.phone-prompt-reminder {
+  font-size: 1rem;
+  color: #667eea;
+  font-style: italic;
+  margin-bottom: 0.75rem;
+}
+
+/* Phone results cards */
+.phone-results {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.phone-result-card {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.phone-result-text {
+  font-size: 1.1rem;
+  color: #e8e8e8;
+  margin-bottom: 0.3rem;
+}
+
+.phone-result-meta {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+/* Phone scoreboard */
+.phone-scoreboard {
+  width: 100%;
+  max-width: 320px;
+  margin-top: 1rem;
+}
+
+.phone-score-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border-bottom: 1px solid #222;
+}
+
+.phone-score-row.phone-score-me {
+  color: #667eea;
+  font-weight: bold;
 }
 
 /* Hidden utility */

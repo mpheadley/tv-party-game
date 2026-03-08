@@ -9,6 +9,9 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
+// Redirect root to TV page
+app.get('/', (req, res) => res.redirect('/tv.html'));
+
 // ── Prompts — family-friendly, fun for ages 9-16 ──
 const PROMPTS = [
   // Classic silly

@@ -548,8 +548,12 @@ io.on('connection', (socket) => {
         tallyAndShowResults();
       }
 
-      // If fewer than 2 players remain mid-game, end it
-      if (game.phase !== 'lobby' && Object.keys(game.players).length < 2) {
+      // If all players gone, reset to lobby
+      if (Object.keys(game.players).length === 0) {
+        resetGame();
+        console.log('All players disconnected — reset to lobby');
+      } else if (game.phase !== 'lobby' && Object.keys(game.players).length < 2) {
+        // If fewer than 2 players remain mid-game, end it
         clearTimeout(game.roundTimer);
         endGame();
       }
@@ -575,7 +579,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
   console.log('');
-  console.log('  Party Game Server Running!');
+  console.log('  Hot Take 🔥 Server Running!');
   console.log(`   Local:   http://${ip}:${PORT}/tv.html`);
   console.log(`   Phones:  http://${ip}:${PORT}/phone.html`);
   console.log('');

@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Party Game — Join</title>
+  <title>Hot Take 🔥 — Join</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <!-- JOIN -->
   <div id="screen-join" class="phone-container">
-    <h1>Party Game</h1>
+    <h1>Hot Take 🔥</h1>
     <div class="join-form">
       <input type="text" id="name-input" placeholder="Your name" maxlength="20" autocomplete="off">
       <label class="emoji-label">Pick your avatar</label>
@@ -180,26 +180,6 @@
       osc.connect(gain).connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.06);
-    }
-
-    // ── Text-to-Speech ──
-    let cachedVoices = [];
-    if ('speechSynthesis' in window) {
-      cachedVoices = speechSynthesis.getVoices();
-      speechSynthesis.addEventListener('voiceschanged', () => {
-        cachedVoices = speechSynthesis.getVoices();
-      });
-    }
-
-    function speakPrompt(text) {
-      if (!('speechSynthesis' in window)) return;
-      speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.9;
-      utter.pitch = 0.8;
-      const funVoice = cachedVoices.find(v => /Daniel|Samantha|Alex|Fred|Zarvox|Trinoids/i.test(v.name));
-      if (funVoice) utter.voice = funVoice;
-      speechSynthesis.speak(utter);
     }
 
     // Haptic feedback
@@ -472,8 +452,20 @@
 
     // Update emoji picker to show taken avatars
     socket.on('player-update', (players) => {
-      // Grey out taken avatars in the picker
       const takenAvatars = players.map(p => p.avatar);
+
+      // If our selected avatar was taken by someone else, auto-pick first available
+      if (takenAvatars.includes(selectedAvatar)) {
+        const firstAvailable = AVATARS.find(a => !takenAvatars.includes(a));
+        if (firstAvailable) {
+          selectedAvatar = firstAvailable;
+          emojiPicker.querySelectorAll('.emoji-option').forEach(b => {
+            b.classList.toggle('selected', b.textContent === firstAvailable);
+          });
+        }
+      }
+
+      // Grey out taken avatars in the picker
       emojiPicker.querySelectorAll('.emoji-option').forEach(btn => {
         const emoji = btn.textContent;
         const isTaken = takenAvatars.includes(emoji) && emoji !== selectedAvatar;

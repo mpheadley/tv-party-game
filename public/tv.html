@@ -196,8 +196,15 @@
       const qrDiv = document.getElementById('qr-code');
       qrDiv.innerHTML = '';
       if (typeof QRCode !== 'undefined') {
-        QRCode.toCanvas(url, { width: 200, margin: 1 }, (err, canvas) => {
-          if (!err) qrDiv.appendChild(canvas);
+        QRCode.toDataURL(url, { width: 200, margin: 1 }, (err, dataUrl) => {
+          if (!err) {
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.alt = 'Scan to join';
+            img.width = 200;
+            img.height = 200;
+            qrDiv.appendChild(img);
+          }
         });
       }
 

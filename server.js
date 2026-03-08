@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const os = require('os');
+const QRCode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
@@ -106,7 +107,6 @@ let game = {
   answers: {},          // { socketId: answerText }
   votes: {},            // { voterSocketId: answererSocketId }
   usedPrompts: [],
-  usedAvatars: [],
   tvSocket: null,
   roundTimer: null,
 };
@@ -133,12 +133,12 @@ function getLocalIP() {
 }
 
 function pickAvatar() {
-  const available = AVATARS.filter(a => !game.usedAvatars.includes(a));
-  const avatar = available.length > 0
+  // Derive used avatars from current players — no stale state
+  const usedAvatars = Object.values(game.players).map(p => p.avatar);
+  const available = AVATARS.filter(a => !usedAvatars.includes(a));
+  return available.length > 0
     ? available[Math.floor(Math.random() * available.length)]
     : AVATARS[Math.floor(Math.random() * AVATARS.length)];
-  game.usedAvatars.push(avatar);
-  return avatar;
 }
 
 function pickPrompt() {
@@ -304,13 +304,22 @@ io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
   // TV connects
-  socket.on('tv-connect', () => {
+  socket.on('tv-connect', async (publicUrl) => {
     game.tvSocket = socket.id;
+    // Generate QR code server-side — publicUrl comes from the browser's location.origin
+    let qrDataUrl = null;
+    if (publicUrl) {
+      try {
+        const phoneUrl = publicUrl + '/phone.html';
+        qrDataUrl = await QRCode.toDataURL(phoneUrl, { width: 200, margin: 1 });
+      } catch (e) { /* QR generation failed, client will show URL only */ }
+    }
     socket.emit('game-state', {
       phase: game.phase,
       players: getPlayerList(),
       ip: getLocalIP(),
       port: PORT,
+      qrDataUrl,
     });
   });
 
@@ -420,7 +429,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (game.players[socket.id]) {
       console.log(`${game.players[socket.id].name} disconnected`);
-      game.usedAvatars = game.usedAvatars.filter(a => a !== game.players[socket.id].avatar);
       delete game.players[socket.id];
       io.emit('player-update', getPlayerList());
     }

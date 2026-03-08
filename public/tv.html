@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Party Game — TV</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- QR Code library — loaded first so it's ready when needed -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="tv-container">
+    <h1>Party Game</h1>
+    <p class="subtitle">Scan the code to join!</p>
+    <div id="qr-code"></div>
+    <p class="join-url" id="join-url"></p>
+    <div class="player-list" id="player-list"></div>
+    <div class="round-picker">
+      <button class="round-option" data-rounds="5">Quick<br><span>~5 min</span></button>
+      <button class="round-option selected" data-rounds="10">Normal<br><span>~12 min</span></button>
+      <button class="round-option" data-rounds="15">Long<br><span>~20 min</span></button>
+    </div>
+    <button class="btn-start" id="btn-start" disabled>Start Game</button>
+    <p class="status" id="lobby-status">Waiting for players...</p>
+  </div>
+
+  <!-- PROMPT ROUND -->
+  <div id="screen-prompt" class="tv-container hidden">
+    <p class="round-label" id="round-label"></p>
+    <p class="prompt-display" id="prompt-text"></p>
+    <div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+    <p class="timer-countdown" id="timer-countdown"></p>
+    <p class="status" id="answer-status">Waiting for answers...</p>
+  </div>
+
+  <!-- VOTING -->
+  <div id="screen-vote" class="tv-container hidden">
+    <p class="round-label">Vote for your favorite!</p>
+    <div class="answers-grid" id="tv-answers"></div>
+    <div class="timer-bar"><div class="timer-fill" id="vote-timer-fill"></div></div>
+    <p class="status" id="vote-status">Vote on your phones!</p>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="screen-results" class="tv-container hidden">
+    <p class="round-label" id="results-round"></p>
+    <div class="answers-grid" id="results-answers"></div>
+    <h2 style="margin-top:2rem; color:#667eea;">Scoreboard</h2>
+    <div class="scoreboard" id="results-scoreboard"></div>
+    <button class="btn-start" id="btn-next">Next Round</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-gameover" class="tv-container hidden">
+    <h1>Game Over!</h1>
+    <div class="winner-banner" id="winner-banner"></div>
+    <div class="scoreboard" id="final-scoreboard"></div>
+    <button class="btn-start" id="btn-again" style="margin-top:2rem;">Play Again</button>
+    <canvas id="confetti-canvas"></canvas>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let countdownInterval = null;
+
+    // ── Sound Effects (Web Audio API) ──
+    // Create lazily on first user interaction to satisfy autoplay policy
+    let audioCtx = null;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(type) {
+      ensureAudio();
+      if (!audioCtx) return;
+
+      switch (type) {
+        case 'join': playTone([440, 554, 659], 0.08, 'sine'); break;
+        case 'round-start': playTone([330, 440, 554, 659], 0.12, 'square'); break;
+        case 'submit': playTone([500, 600], 0.06, 'sine'); break;
+        case 'times-up': playTone([440, 330, 220], 0.2, 'sawtooth'); break;
+        case 'results': playTone([330, 440, 554, 659, 880], 0.15, 'sine'); break;
+        case 'gameover': playFanfare(); break;
+      }
+    }
+
+    function playTone(freqs, duration, type) {
+      freqs.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime + i * duration);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * duration + duration + 0.1);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + i * duration);
+        osc.stop(audioCtx.currentTime + i * duration + duration + 0.15);
+      });
+    }
+
+    function playFanfare() {
+      const melody = [523, 659, 784, 1047, 784, 1047];
+      const durations = [0.15, 0.15, 0.15, 0.3, 0.1, 0.4];
+      let time = audioCtx.currentTime;
+      melody.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.12, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + durations[i]);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(time);
+        osc.stop(time + durations[i] + 0.05);
+        time += durations[i];
+      });
+    }
+
+    // ── Confetti ──
+    function launchConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.display = 'block';
+      const ctx = canvas.getContext('2d');
+      const colors = ['#667eea', '#764ba2', '#ffd700', '#ff6b6b', '#48dbfb', '#ff9ff3', '#00d2d3'];
+      const pieces = [];
+
+      for (let i = 0; i < 150; i++) {
+        pieces.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          w: Math.random() * 12 + 6,
+          h: Math.random() * 8 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          vx: (Math.random() - 0.5) * 4,
+          vy: Math.random() * 3 + 2,
+          rot: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 10,
+        });
+      }
+
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rot += p.rotSpeed;
+          p.vy += 0.05;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot * Math.PI / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        });
+        frame++;
+        if (frame < 300) requestAnimationFrame(animate);
+        else canvas.style.display = 'none';
+      }
+      animate();
+    }
+
+    // ── Screens ──
+    const screens = {
+      lobby: document.getElementById('screen-lobby'),
+      prompt: document.getElementById('screen-prompt'),
+      vote: document.getElementById('screen-vote'),
+      results: document.getElementById('screen-results'),
+      gameover: document.getElementById('screen-gameover'),
+    };
+
+    function showScreen(name) {
+      Object.values(screens).forEach(s => s.classList.add('hidden'));
+      screens[name].classList.remove('hidden');
+    }
+
+    // Tell server we're the TV
+    socket.emit('tv-connect');
+
+    // Initial state
+    socket.on('game-state', (data) => {
+      // Use browser's own origin so it works on both local network and cloud hosting
+      const origin = window.location.origin;
+      const url = `${origin}/phone.html`;
+      document.getElementById('join-url').textContent = url;
+
+      const qrDiv = document.getElementById('qr-code');
+      qrDiv.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(url, { width: 200, margin: 1 }, (err, canvas) => {
+          if (!err) qrDiv.appendChild(canvas);
+        });
+      }
+
+      updatePlayerList(data.players);
+    });
+
+    // Player list updates
+    socket.on('player-update', (players) => {
+      updatePlayerList(players);
+    });
+
+    function updatePlayerList(players) {
+      const list = document.getElementById('player-list');
+      list.innerHTML = players.map(p =>
+        `<div class="player-card"><span class="player-avatar">${p.avatar}</span> ${escapeHtml(p.name)}</div>`
+      ).join('');
+
+      const btn = document.getElementById('btn-start');
+      btn.disabled = players.length < 2;
+      document.getElementById('lobby-status').textContent =
+        players.length < 2
+          ? `Need at least 2 players (${players.length} joined)`
+          : `${players.length} players ready!`;
+    }
+
+    // Round picker
+    let selectedRounds = 10;
+    document.querySelectorAll('.round-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.round-option').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedRounds = parseInt(btn.dataset.rounds);
+      });
+    });
+
+    // Start game — also initializes audio on user click
+    document.getElementById('btn-start').addEventListener('click', () => {
+      ensureAudio();
+      socket.emit('start-game', selectedRounds);
+    });
+
+    // Sound events
+    socket.on('sound', (type) => { playSound(type); });
+
+    // Phase changes
+    socket.on('phase', (data) => {
+      clearInterval(countdownInterval);
+
+      switch (data.phase) {
+        case 'lobby':
+          showScreen('lobby');
+          break;
+
+        case 'prompt':
+          showScreen('prompt');
+          document.getElementById('round-label').textContent =
+            `Round ${data.round} of ${data.totalRounds}`;
+          document.getElementById('prompt-text').textContent = data.prompt;
+          document.getElementById('answer-status').textContent = 'Waiting for answers...';
+
+          // Animate timer bar
+          const fill = document.getElementById('timer-fill');
+          fill.style.transition = 'none';
+          fill.style.width = '100%';
+          fill.classList.remove('timer-warning');
+          requestAnimationFrame(() => {
+            fill.style.transition = `width ${data.timeLimit}s linear`;
+            fill.style.width = '0%';
+          });
+
+          // Countdown number
+          let timeLeft = data.timeLimit;
+          const countdownEl = document.getElementById('timer-countdown');
+          countdownEl.textContent = timeLeft + 's';
+          countdownEl.classList.remove('timer-warning-text');
+          countdownInterval = setInterval(() => {
+            timeLeft--;
+            countdownEl.textContent = timeLeft + 's';
+            if (timeLeft <= 10) {
+              fill.classList.add('timer-warning');
+              countdownEl.classList.add('timer-warning-text');
+            }
+            if (timeLeft <= 0) clearInterval(countdownInterval);
+          }, 1000);
+          break;
+
+        case 'vote':
+          showScreen('vote');
+          const grid = document.getElementById('tv-answers');
+          grid.innerHTML = data.answers.map((a, i) =>
+            `<div class="answer-card" style="animation-delay: ${i * 0.15}s">${escapeHtml(a.text)}</div>`
+          ).join('');
+          document.getElementById('vote-status').textContent = 'Vote on your phones!';
+
+          // Vote timer bar
+          if (data.timeLimit) {
+            const voteFill = document.getElementById('vote-timer-fill');
+            voteFill.style.transition = 'none';
+            voteFill.style.width = '100%';
+            voteFill.classList.remove('timer-warning');
+            requestAnimationFrame(() => {
+              voteFill.style.transition = `width ${data.timeLimit}s linear`;
+              voteFill.style.width = '0%';
+            });
+          }
+          break;
+
+        case 'results':
+          showScreen('results');
+          playSound('results');
+          document.getElementById('results-round').textContent =
+            `Round ${data.round} of ${data.totalRounds} — Results`;
+          const rGrid = document.getElementById('results-answers');
+          rGrid.innerHTML = data.results.map((r, i) =>
+            `<div class="answer-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
+              <div class="answer-text">"${escapeHtml(r.text)}"</div>
+              <div class="vote-count">${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
+              <div class="author">${r.avatar} ${escapeHtml(r.author)}</div>
+            </div>`
+          ).join('');
+          renderScoreboard('results-scoreboard', data.scoreboard);
+          document.getElementById('btn-next').textContent =
+            data.round >= data.totalRounds ? 'Final Scores' : 'Next Round';
+          break;
+
+        case 'gameover':
+          showScreen('gameover');
+          playSound('gameover');
+          renderScoreboard('final-scoreboard', data.scoreboard);
+          if (data.scoreboard.length > 0) {
+            const winner = data.scoreboard[0];
+            document.getElementById('winner-banner').innerHTML =
+              `<span class="winner-avatar">${winner.avatar}</span>
+               <span class="winner-name">${escapeHtml(winner.name)} wins!</span>`;
+          }
+          setTimeout(launchConfetti, 500);
+          break;
+      }
+    });
+
+    // Progress updates
+    socket.on('answer-progress', (data) => {
+      document.getElementById('answer-status').textContent =
+        `${data.answered} of ${data.total} answered`;
+    });
+
+    socket.on('vote-progress', (data) => {
+      document.getElementById('vote-status').textContent =
+        `${data.voted} of ${data.total} voted`;
+    });
+
+    // Next round / play again
+    document.getElementById('btn-next').addEventListener('click', () => {
+      socket.emit('next-round');
+    });
+
+    document.getElementById('btn-again').addEventListener('click', () => {
+      socket.emit('play-again');
+    });
+
+    // Helpers
+    function renderScoreboard(elementId, scoreboard) {
+      const el = document.getElementById(elementId);
+      const medals = ['🥇', '🥈', '🥉'];
+      el.innerHTML = scoreboard.map((p, i) =>
+        `<div class="score-row ${i === 0 ? 'first-place' : ''}">
+          <span>${medals[i] || ''} ${p.avatar} ${escapeHtml(p.name)}</span>
+          <span class="points">${p.score} pt${p.score !== 1 ? 's' : ''}</span>
+        </div>`
+      ).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

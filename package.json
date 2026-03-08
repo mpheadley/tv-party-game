@@ -1,0 +1,14 @@
+{
+  "name": "tv-party-game",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "description": "Jackbox-style party game — TV + phone controllers over WebSocket",
+  "dependencies": {
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.3"
+  }
+}

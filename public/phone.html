@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Party Game — Join</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- JOIN -->
+  <div id="screen-join" class="phone-container">
+    <h1>Party Game</h1>
+    <div class="join-form">
+      <input type="text" id="name-input" placeholder="Your name" maxlength="20" autocomplete="off">
+      <button id="btn-join">Join Game</button>
+    </div>
+    <p class="status" id="join-error" style="color:#ff6b6b;"></p>
+  </div>
+
+  <!-- WAITING IN LOBBY -->
+  <div id="screen-waiting" class="phone-container hidden">
+    <div class="phone-avatar" id="my-avatar"></div>
+    <h1>You're In!</h1>
+    <p class="waiting-msg" id="waiting-name"></p>
+    <p class="status">Waiting for the game to start...</p>
+  </div>
+
+  <!-- ANSWER PROMPT -->
+  <div id="screen-answer" class="phone-container hidden">
+    <p class="phone-prompt" id="phone-prompt"></p>
+    <div class="phone-timer" id="phone-timer"></div>
+    <div class="phone-answer">
+      <textarea id="answer-input" placeholder="Type your answer..." maxlength="200"></textarea>
+      <button id="btn-submit">Submit Answer</button>
+    </div>
+  </div>
+
+  <!-- ANSWER SUBMITTED -->
+  <div id="screen-answered" class="phone-container hidden">
+    <p class="waiting-msg">Answer submitted!</p>
+    <p class="status" id="my-answer-note" style="color:#667eea; font-style:italic; margin-top:1rem;"></p>
+    <p class="status">Waiting for everyone else...</p>
+  </div>
+
+  <!-- VOTE -->
+  <div id="screen-vote" class="phone-container hidden">
+    <p class="phone-prompt">Vote for your favorite!</p>
+    <div class="vote-options" id="vote-options"></div>
+  </div>
+
+  <!-- VOTE SUBMITTED -->
+  <div id="screen-voted" class="phone-container hidden">
+    <p class="waiting-msg">Vote cast!</p>
+    <p class="status">Results coming up on the TV...</p>
+  </div>
+
+  <!-- RESULTS / BETWEEN ROUNDS -->
+  <div id="screen-round-end" class="phone-container hidden">
+    <p class="waiting-msg">Check the TV for results!</p>
+    <p class="status" id="phone-score"></p>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-gameover" class="phone-container hidden">
+    <h1>Game Over!</h1>
+    <p class="phone-rank" id="final-rank"></p>
+    <p class="status" id="final-score"></p>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let myId = null;
+    let phoneTimer = null;
+    let hasSubmitted = false;
+
+    // Haptic feedback
+    function vibrate(pattern) {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    }
+
+    // Screens
+    const screens = {
+      join: document.getElementById('screen-join'),
+      waiting: document.getElementById('screen-waiting'),
+      answer: document.getElementById('screen-answer'),
+      answered: document.getElementById('screen-answered'),
+      vote: document.getElementById('screen-vote'),
+      voted: document.getElementById('screen-voted'),
+      roundEnd: document.getElementById('screen-round-end'),
+      gameover: document.getElementById('screen-gameover'),
+    };
+
+    function showScreen(name) {
+      Object.values(screens).forEach(s => s.classList.add('hidden'));
+      screens[name].classList.remove('hidden');
+    }
+
+    // Store socket ID
+    socket.on('connect', () => { myId = socket.id; });
+
+    // Join
+    const nameInput = document.getElementById('name-input');
+    const btnJoin = document.getElementById('btn-join');
+
+    btnJoin.addEventListener('click', joinGame);
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') joinGame();
+    });
+
+    function joinGame() {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      btnJoin.disabled = true;
+      socket.emit('join', name);
+    }
+
+    socket.on('joined', (data) => {
+      document.getElementById('waiting-name').textContent = `Welcome, ${data.name}!`;
+      document.getElementById('my-avatar').textContent = data.avatar;
+      vibrate(100);
+      showScreen('waiting');
+    });
+
+    socket.on('error-msg', (msg) => {
+      document.getElementById('join-error').textContent = msg;
+      btnJoin.disabled = false;
+      vibrate([50, 50, 50]);
+    });
+
+    // Phase changes
+    socket.on('phase', (data) => {
+      clearInterval(phoneTimer);
+
+      switch (data.phase) {
+        case 'lobby':
+          showScreen('waiting');
+          break;
+
+        case 'prompt':
+          hasSubmitted = false;
+          showScreen('answer');
+          vibrate(200);
+          document.getElementById('phone-prompt').textContent = data.prompt;
+          document.getElementById('answer-input').value = '';
+          document.getElementById('btn-submit').disabled = false;
+          setTimeout(() => document.getElementById('answer-input').focus(), 100);
+
+          // Phone timer
+          let timeLeft = data.timeLimit;
+          const timerEl = document.getElementById('phone-timer');
+          timerEl.textContent = timeLeft + 's';
+          timerEl.classList.remove('timer-urgent');
+          phoneTimer = setInterval(() => {
+            timeLeft--;
+            timerEl.textContent = Math.max(0, timeLeft) + 's';
+            if (timeLeft <= 10) {
+              timerEl.classList.add('timer-urgent');
+              if (timeLeft > 0) vibrate(50);
+            }
+            if (timeLeft <= 0) {
+              clearInterval(phoneTimer);
+              // Auto-submit if they typed something and haven't submitted
+              if (!hasSubmitted) {
+                const text = document.getElementById('answer-input').value.trim();
+                if (text) {
+                  hasSubmitted = true;
+                  document.getElementById('btn-submit').disabled = true;
+                  document.getElementById('my-answer-note').textContent = `Your answer: "${text}"`;
+                  socket.emit('answer', text);
+                }
+              }
+            }
+          }, 1000);
+          break;
+
+        case 'vote':
+          showScreen('vote');
+          vibrate(150);
+          const options = document.getElementById('vote-options');
+          // Server already filtered out our own answer
+          options.innerHTML = data.answers
+            .map(a =>
+              `<button class="vote-btn" data-id="${a.id}">${escapeHtml(a.text)}</button>`
+            ).join('');
+
+          // Vote click handlers
+          let hasVoted = false;
+          options.querySelectorAll('.vote-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (hasVoted) return;
+              hasVoted = true;
+              vibrate(80);
+              socket.emit('vote', btn.dataset.id);
+              options.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('selected'));
+              btn.classList.add('selected');
+            });
+          });
+          break;
+
+        case 'results':
+          showScreen('roundEnd');
+          const myScore = data.scoreboard.find(p => p.id === myId);
+          document.getElementById('phone-score').textContent =
+            myScore ? `Your score: ${myScore.score}` : '';
+          break;
+
+        case 'gameover':
+          showScreen('gameover');
+          vibrate([100, 100, 100, 100, 300]);
+          const finalMe = data.scoreboard.find(p => p.id === myId);
+          const rank = data.scoreboard.findIndex(p => p.id === myId) + 1;
+          const rankEmoji = ['🥇', '🥈', '🥉'][rank - 1] || '';
+          document.getElementById('final-rank').textContent =
+            rank > 0 ? (rankEmoji ? `${rankEmoji} #${rank}` : `#${rank}`) : '';
+          document.getElementById('final-score').textContent =
+            finalMe ? `${finalMe.score} point${finalMe.score !== 1 ? 's' : ''}` : '';
+          break;
+      }
+    });
+
+    // Submit answer
+    document.getElementById('btn-submit').addEventListener('click', () => {
+      if (hasSubmitted) return;
+      const text = document.getElementById('answer-input').value.trim();
+      if (!text) return;
+      hasSubmitted = true;
+      clearInterval(phoneTimer);
+      document.getElementById('btn-submit').disabled = true;
+      document.getElementById('my-answer-note').textContent = `Your answer: "${text}"`;
+      vibrate(100);
+      socket.emit('answer', text);
+    });
+
+    socket.on('answer-received', () => {
+      showScreen('answered');
+    });
+
+    socket.on('vote-received', () => {
+      showScreen('voted');
+    });
+
+    // Helpers
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

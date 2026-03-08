@@ -88,6 +88,56 @@ const PROMPTS = [
   "Name a candle scent that would sell zero units.",
   "What would your pet say about you behind your back?",
   "What's the worst thing to put on a resume?",
+
+  // Snarky / roast / unhinged (family-safe for ages 9-16)
+  "What's the real reason your parents had a second kid?",
+  "Write a passive-aggressive sticky note from your fridge.",
+  "What's your screen time report ACTUALLY hiding?",
+  "Describe your sibling using only a warning label.",
+  "What would Gordon Ramsay say about your cooking?",
+  "Write a Yelp review of your family's Thanksgiving.",
+  "What's the group chat message that would end a friendship?",
+  "Your last brain cell is writing a resignation letter. What does it say?",
+  "Describe your morning routine like a nature documentary narrator.",
+  "What would your search history say during a job interview?",
+  "Write a brutally honest college application essay in one sentence.",
+  "What's the most unhinged thing you've done when nobody was watching?",
+  "Your WiFi goes out for 24 hours. Write your diary entry.",
+  "Describe your family using only red flags.",
+  "What would your teacher's Yelp review of you say?",
+  "Write a product recall notice for yourself.",
+  "Your conscience is leaving a one-star review. What does it say?",
+  "What lie are you STILL committed to?",
+  "Roast your best friend using only compliments.",
+  "What would a documentary about your life be called?",
+  "Your phone is writing a tell-all memoir. What's the first chapter?",
+  "Describe your sleep schedule to a concerned doctor.",
+  "What's the most chaotic thing in your camera roll right now?",
+  "Write an apology letter from your homework to your teacher.",
+  "What would your pet's restraining order against you say?",
+  "Describe your personality as a candle scent nobody would buy.",
+  "What's the most suspicious thing you could whisper to a stranger?",
+  "Your stomach just started a podcast. What's episode one about?",
+  "Write a formal complaint about someone in this room WITHOUT naming them.",
+  "What would the FBI agent watching your screen write in their report?",
+];
+
+const SNARKY_COMMENTARY = [
+  "Well, THAT happened.",
+  "Your ancestors are watching. They're confused.",
+  "Bold strategy. Let's see if it pays off.",
+  "I'm not mad, I'm just disappointed.",
+  "The bar was on the floor and somehow...",
+  "Somebody's parents are going to hear about this.",
+  "This is why we can't have nice things.",
+  "I'd say 'interesting choices' but I'd be lying.",
+  "The judges would like to remind you this is a FAMILY game.",
+  "That answer is going in the vault. Forever.",
+  "Somewhere, a guidance counselor just felt a chill.",
+  "You all chose violence today and honestly? Respect.",
+  "This round sponsored by questionable life decisions.",
+  "The algorithm is judging you. So am I.",
+  "No thoughts, just vibes. Mostly concerning vibes.",
 ];
 
 const AVATARS = [
@@ -283,6 +333,7 @@ function tallyAndShowResults() {
     scoreboard,
     round: game.round,
     totalRounds: game.totalRounds,
+    commentary: SNARKY_COMMENTARY[Math.floor(Math.random() * SNARKY_COMMENTARY.length)],
   });
 }
 
@@ -297,7 +348,7 @@ function resetGame() {
   clearTimeout(game.roundTimer);
   game.phase = 'lobby';
   game.round = 0;
-  game.totalRounds = 10;
+  // Don't reset totalRounds — start-game will set it from the picker
   game.currentPrompt = '';
   game.answers = {};
   game.votes = {};
@@ -332,7 +383,11 @@ io.on('connection', (socket) => {
   });
 
   // Player joins
-  socket.on('join', (name) => {
+  socket.on('join', (data) => {
+    // Support both old format (string) and new format (object)
+    const name = typeof data === 'string' ? data : data?.name;
+    const requestedAvatar = typeof data === 'object' ? data?.avatar : null;
+
     if (game.phase !== 'lobby') {
       socket.emit('error-msg', 'Game already in progress! Wait for the next game.');
       return;
@@ -343,7 +398,9 @@ io.on('connection', (socket) => {
     const cleanName = String(name).trim().slice(0, 20);
     if (!cleanName) return;
 
-    const avatar = pickAvatar();
+    const usedAvatars = Object.values(game.players).map(p => p.avatar);
+    const avatar = (requestedAvatar && AVATARS.includes(requestedAvatar) && !usedAvatars.includes(requestedAvatar))
+      ? requestedAvatar : pickAvatar();
     game.players[socket.id] = { name: cleanName, score: 0, avatar };
 
     // First player becomes host

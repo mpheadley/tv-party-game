@@ -45,6 +45,7 @@
   <!-- RESULTS -->
   <div id="screen-results" class="tv-container hidden">
     <p class="round-label" id="results-round"></p>
+    <p class="snarky-commentary" id="tv-commentary"></p>
     <div class="answers-grid" id="results-answers"></div>
     <h2 style="margin-top:2rem; color:#667eea;">Scoreboard</h2>
     <div class="scoreboard" id="results-scoreboard"></div>
@@ -84,8 +85,11 @@
         case 'join': playTone([440, 554, 659], 0.08, 'sine'); break;
         case 'round-start': playTone([330, 440, 554, 659], 0.12, 'square'); break;
         case 'submit': playTone([500, 600], 0.06, 'sine'); break;
+        case 'vote-cast': playTone([600, 800], 0.06, 'sine'); break;
         case 'times-up': playTone([440, 330, 220], 0.2, 'sawtooth'); break;
         case 'results': playTone([330, 440, 554, 659, 880], 0.15, 'sine'); break;
+        case 'reveal': playReveal(); break;
+        case 'tick': playTick(); break;
         case 'gameover': playFanfare(); break;
       }
     }
@@ -120,6 +124,51 @@
         osc.stop(time + durations[i] + 0.05);
         time += durations[i];
       });
+    }
+
+    function playReveal() {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.45);
+    }
+
+    function playTick() {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.06);
+    }
+
+    // ── Text-to-Speech ──
+    let cachedVoices = [];
+    if ('speechSynthesis' in window) {
+      cachedVoices = speechSynthesis.getVoices();
+      speechSynthesis.addEventListener('voiceschanged', () => {
+        cachedVoices = speechSynthesis.getVoices();
+      });
+    }
+
+    function speakPrompt(text) {
+      if (!('speechSynthesis' in window)) return;
+      speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.9;
+      utter.pitch = 0.8;
+      const funVoice = cachedVoices.find(v => /Daniel|Samantha|Alex|Fred|Zarvox|Trinoids/i.test(v.name));
+      if (funVoice) utter.voice = funVoice;
+      speechSynthesis.speak(utter);
     }
 
     // ── Confetti ──
@@ -269,6 +318,9 @@
             fill.style.width = '0%';
           });
 
+          // Read prompt aloud on TV
+          speakPrompt(data.prompt);
+
           // Countdown number
           let timeLeft = data.timeLimit;
           const countdownEl = document.getElementById('timer-countdown');
@@ -280,6 +332,7 @@
             if (timeLeft <= 10) {
               fill.classList.add('timer-warning');
               countdownEl.classList.add('timer-warning-text');
+              if (timeLeft > 0) playSound('tick');
             }
             if (timeLeft <= 0) clearInterval(countdownInterval);
           }, 1000);
@@ -309,9 +362,10 @@
 
         case 'results':
           showScreen('results');
-          playSound('results');
+          playSound('reveal');
           document.getElementById('results-round').textContent =
             `Round ${data.round} of ${data.totalRounds} — Results`;
+          document.getElementById('tv-commentary').textContent = data.commentary || '';
           const rGrid = document.getElementById('results-answers');
           rGrid.innerHTML = data.results.map((r, i) =>
             `<div class="answer-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">

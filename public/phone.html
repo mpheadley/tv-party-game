@@ -13,6 +13,8 @@
     <h1>Party Game</h1>
     <div class="join-form">
       <input type="text" id="name-input" placeholder="Your name" maxlength="20" autocomplete="off">
+      <label class="emoji-label">Pick your avatar</label>
+      <div class="emoji-picker" id="emoji-picker"></div>
       <button id="btn-join">Join Game</button>
     </div>
     <p class="status" id="join-error" style="color:#ff6b6b;"></p>
@@ -71,6 +73,7 @@
   <!-- RESULTS / BETWEEN ROUNDS -->
   <div id="screen-round-end" class="phone-container hidden">
     <p class="round-label" id="phone-round-label"></p>
+    <p class="snarky-commentary" id="phone-commentary"></p>
     <div class="phone-results" id="phone-results"></div>
     <p class="status" id="phone-score" style="margin-top:1rem; font-size:1.4rem; color:#667eea; font-weight:bold;"></p>
     <div class="phone-scoreboard" id="phone-scoreboard"></div>
@@ -93,6 +96,111 @@
     let phoneTimer = null;
     let hasSubmitted = false;
     let isHost = false;
+
+    // ── Sound Effects (Web Audio API) ──
+    let audioCtx = null;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(type) {
+      ensureAudio();
+      if (!audioCtx) return;
+
+      switch (type) {
+        case 'join': playTone([440, 554, 659], 0.08, 'sine'); break;
+        case 'round-start': playTone([330, 440, 554, 659], 0.12, 'square'); break;
+        case 'submit': playTone([500, 600], 0.06, 'sine'); break;
+        case 'vote-cast': playTone([600, 800], 0.06, 'sine'); break;
+        case 'times-up': playTone([440, 330, 220], 0.2, 'sawtooth'); break;
+        case 'results': playTone([330, 440, 554, 659, 880], 0.15, 'sine'); break;
+        case 'reveal': playReveal(); break;
+        case 'tick': playTick(); break;
+        case 'gameover': playFanfare(); break;
+      }
+    }
+
+    function playTone(freqs, duration, type) {
+      freqs.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime + i * duration);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * duration + duration + 0.1);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + i * duration);
+        osc.stop(audioCtx.currentTime + i * duration + duration + 0.15);
+      });
+    }
+
+    function playFanfare() {
+      const melody = [523, 659, 784, 1047, 784, 1047];
+      const durations = [0.15, 0.15, 0.15, 0.3, 0.1, 0.4];
+      let time = audioCtx.currentTime;
+      melody.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.12, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + durations[i]);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(time);
+        osc.stop(time + durations[i] + 0.05);
+        time += durations[i];
+      });
+    }
+
+    function playReveal() {
+      // Dramatic reveal — rising sweep
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.45);
+    }
+
+    function playTick() {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.06);
+    }
+
+    // ── Text-to-Speech ──
+    let cachedVoices = [];
+    if ('speechSynthesis' in window) {
+      cachedVoices = speechSynthesis.getVoices();
+      speechSynthesis.addEventListener('voiceschanged', () => {
+        cachedVoices = speechSynthesis.getVoices();
+      });
+    }
+
+    function speakPrompt(text) {
+      if (!('speechSynthesis' in window)) return;
+      speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.9;
+      utter.pitch = 0.8;
+      const funVoice = cachedVoices.find(v => /Daniel|Samantha|Alex|Fred|Zarvox|Trinoids/i.test(v.name));
+      if (funVoice) utter.voice = funVoice;
+      speechSynthesis.speak(utter);
+    }
 
     // Haptic feedback
     function vibrate(pattern) {
@@ -119,6 +227,27 @@
     // Store socket ID
     socket.on('connect', () => { myId = socket.id; });
 
+    // Sound events from server
+    socket.on('sound', (type) => { playSound(type); });
+
+    // Emoji picker
+    const AVATARS = ['🦊', '🐸', '🦉', '🐙', '🦄', '🐲', '🦋', '🐢', '🦁', '🐧', '🦖', '🐬', '🦩', '🐨', '🦝', '🐝'];
+    let selectedAvatar = AVATARS[0];
+    const emojiPicker = document.getElementById('emoji-picker');
+
+    AVATARS.forEach((emoji, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'emoji-option' + (i === 0 ? ' selected' : '');
+      btn.textContent = emoji;
+      btn.addEventListener('click', () => {
+        selectedAvatar = emoji;
+        emojiPicker.querySelectorAll('.emoji-option').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+      emojiPicker.appendChild(btn);
+    });
+
     // Join
     const nameInput = document.getElementById('name-input');
     const btnJoin = document.getElementById('btn-join');
@@ -131,8 +260,9 @@
     function joinGame() {
       const name = nameInput.value.trim();
       if (!name) return;
+      ensureAudio(); // Unlock audio on first user interaction
       btnJoin.disabled = true;
-      socket.emit('join', name);
+      socket.emit('join', { name, avatar: selectedAvatar });
     }
 
     socket.on('joined', (data) => {
@@ -155,10 +285,24 @@
     }
 
     socket.on('error-msg', (msg) => {
+      // Show on join screen if visible
       document.getElementById('join-error').textContent = msg;
       btnJoin.disabled = false;
+      // Also show as toast for any screen
+      showToast(msg);
       vibrate([50, 50, 50]);
     });
+
+    function showToast(msg) {
+      const existing = document.getElementById('toast-msg');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'toast-msg';
+      toast.textContent = msg;
+      toast.style.cssText = 'position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:#ff6b6b;color:#fff;padding:0.75rem 1.5rem;border-radius:0.75rem;font-size:1rem;z-index:999;animation:fadeInSnark 0.3s ease-out;';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
 
     // Phase changes
     socket.on('phase', (data) => {
@@ -182,6 +326,9 @@
           document.getElementById('btn-submit').disabled = false;
           setTimeout(() => document.getElementById('answer-input').focus(), 100);
 
+          // Read the prompt aloud
+          speakPrompt(data.prompt);
+
           // Phone timer
           let timeLeft = data.timeLimit;
           const timerEl = document.getElementById('phone-timer');
@@ -192,7 +339,10 @@
             timerEl.textContent = Math.max(0, timeLeft) + 's';
             if (timeLeft <= 10) {
               timerEl.classList.add('timer-urgent');
-              if (timeLeft > 0) vibrate(50);
+              if (timeLeft > 0) {
+                vibrate(50);
+                playSound('tick');
+              }
             }
             if (timeLeft <= 0) {
               clearInterval(phoneTimer);
@@ -204,6 +354,7 @@
                   document.getElementById('btn-submit').disabled = true;
                   document.getElementById('my-answer-note').textContent = `Your answer: "${text}"`;
                   socket.emit('answer', text);
+                  showScreen('answered');
                 }
               }
             }
@@ -245,6 +396,7 @@
               hasVoted = true;
               clearInterval(phoneTimer);
               vibrate(80);
+              playSound('vote-cast');
               socket.emit('vote', btn.dataset.id);
               options.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('selected'));
               btn.classList.add('selected');
@@ -254,8 +406,10 @@
 
         case 'results':
           showScreen('roundEnd');
+          playSound('reveal');
           document.getElementById('phone-round-label').textContent =
             `Round ${data.round} of ${data.totalRounds}`;
+          document.getElementById('phone-commentary').textContent = data.commentary || '';
 
           // Show results on phone
           const resultsEl = document.getElementById('phone-results');
@@ -282,6 +436,7 @@
 
         case 'gameover':
           showScreen('gameover');
+          playSound('gameover');
           vibrate([100, 100, 100, 100, 300]);
           const finalMe = data.scoreboard.find(p => p.id === myId);
           const rank = data.scoreboard.findIndex(p => p.id === myId) + 1;
@@ -318,8 +473,18 @@
       showScreen('voted');
     });
 
-    // Host: update start button when player count changes
+    // Update emoji picker to show taken avatars
     socket.on('player-update', (players) => {
+      // Grey out taken avatars in the picker
+      const takenAvatars = players.map(p => p.avatar);
+      emojiPicker.querySelectorAll('.emoji-option').forEach(btn => {
+        const emoji = btn.textContent;
+        const isTaken = takenAvatars.includes(emoji) && emoji !== selectedAvatar;
+        btn.classList.toggle('taken', isTaken);
+        btn.disabled = isTaken;
+      });
+
+      // Host: update start button
       if (!isHost) return;
       const btn = document.getElementById('btn-host-start');
       btn.disabled = players.length < 2;

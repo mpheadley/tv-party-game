@@ -41,7 +41,7 @@ body {
   display: inline-block;
 }
 
-#qr-code canvas { display: block; }
+#qr-code img, #qr-code canvas { display: block; }
 
 .join-url {
   font-size: 1.2rem;

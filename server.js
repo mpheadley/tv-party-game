@@ -177,12 +177,17 @@ const AVATARS = [
   '🦁', '🐧', '🦖', '🐬', '🦩', '🐨', '🦝', '🐝',
 ];
 
-const ROUND_TIME = 45; // seconds
+const ROUND_TIME = 60; // seconds
 const VOTE_TIME = 20;  // seconds
+const RECONNECT_GRACE = 30000; // 30 seconds grace period for disconnected players
+
+// Persistent player identity — survives reconnection
+// { token: { name, score, avatar, socketId, disconnectTimer } }
+let playersByToken = {};
 
 let game = {
   phase: 'lobby',       // lobby | prompt | vote | results | gameover
-  players: {},          // { socketId: { name, score, avatar } }
+  players: {},          // { socketId: { name, score, avatar, token } }
   round: 0,
   totalRounds: 5,
   currentPrompt: '',
@@ -193,6 +198,33 @@ let game = {
   hostSocket: null,     // first player to join becomes host
   roundTimer: null,
 };
+
+const crypto = require('crypto');
+
+function generateToken() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+// Migrate answers/votes from old socket ID to new one
+function migrateSocketId(oldId, newId) {
+  if (game.answers[oldId]) {
+    game.answers[newId] = game.answers[oldId];
+    delete game.answers[oldId];
+  }
+  if (game.votes[oldId]) {
+    game.votes[newId] = game.votes[oldId];
+    delete game.votes[oldId];
+  }
+  // Update votes that pointed to the old ID
+  for (const [voterId, answerId] of Object.entries(game.votes)) {
+    if (answerId === oldId) {
+      game.votes[voterId] = newId;
+    }
+  }
+  if (game.hostSocket === oldId) {
+    game.hostSocket = newId;
+  }
+}
 
 function getPlayerList() {
   return Object.entries(game.players).map(([id, p]) => ({
@@ -346,6 +378,11 @@ function tallyAndShowResults() {
   for (const [answerId, count] of Object.entries(voteCounts)) {
     if (game.players[answerId]) {
       game.players[answerId].score += count;
+      // Sync score to persistent store
+      const token = game.players[answerId].token;
+      if (token && playersByToken[token]) {
+        playersByToken[token].score = game.players[answerId].score;
+      }
     }
   }
 
@@ -388,6 +425,11 @@ function resetGame() {
   for (const id of Object.keys(game.players)) {
     game.players[id].score = 0;
   }
+  // Reset scores in persistent store and clear grace timers
+  for (const token of Object.keys(playersByToken)) {
+    clearTimeout(playersByToken[token].disconnectTimer);
+    playersByToken[token].score = 0;
+  }
 }
 
 // ── Socket Handlers ──
@@ -414,6 +456,85 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Player reconnects with token
+  socket.on('reconnect-attempt', (token) => {
+    const stored = playersByToken[token];
+    if (!stored) {
+      // Token not found — tell client to rejoin fresh
+      socket.emit('reconnect-failed');
+      return;
+    }
+
+    // Cancel the disconnect grace timer
+    if (stored.disconnectTimer) {
+      clearTimeout(stored.disconnectTimer);
+      stored.disconnectTimer = null;
+    }
+
+    const oldId = stored.socketId;
+    const newId = socket.id;
+
+    // Remove ghost entry if old socket is still in players
+    if (oldId !== newId && game.players[oldId]) {
+      delete game.players[oldId];
+    }
+
+    // Restore player with new socket ID
+    game.players[newId] = { name: stored.name, score: stored.score, avatar: stored.avatar, token };
+    stored.socketId = newId;
+
+    // Migrate answers, votes, and host reference
+    if (oldId !== newId) {
+      migrateSocketId(oldId, newId);
+    }
+
+    const isHost = game.hostSocket === newId;
+
+    // Send current game state to the reconnected player
+    socket.emit('reconnected', {
+      name: stored.name,
+      avatar: stored.avatar,
+      score: stored.score,
+      token,
+      isHost,
+      phase: game.phase,
+    });
+
+    // Send them the current phase data so their screen updates
+    if (game.phase === 'prompt') {
+      const alreadyAnswered = !!game.answers[newId];
+      socket.emit('phase', {
+        phase: 'prompt',
+        prompt: game.currentPrompt,
+        round: game.round,
+        totalRounds: game.totalRounds,
+        timeLimit: ROUND_TIME,
+      });
+      if (alreadyAnswered) socket.emit('answer-received');
+    } else if (game.phase === 'vote') {
+      const answerList = Object.entries(game.answers)
+        .map(([id, text]) => ({ id, text }))
+        .sort(() => Math.random() - 0.5);
+      const filtered = answerList.filter(a => a.id !== newId);
+      socket.emit('phase', {
+        phase: 'vote',
+        answers: filtered,
+        prompt: game.currentPrompt,
+        round: game.round,
+        totalRounds: game.totalRounds,
+        timeLimit: VOTE_TIME,
+      });
+      if (game.votes[newId]) socket.emit('vote-received');
+    } else if (game.phase === 'results' || game.phase === 'gameover') {
+      // They'll get the current state from the next broadcast
+      const scoreboard = getPlayerList().sort((a, b) => b.score - a.score);
+      socket.emit('phase', { phase: game.phase, scoreboard, round: game.round, totalRounds: game.totalRounds });
+    }
+
+    io.emit('player-update', getPlayerList());
+    console.log(`${stored.avatar} ${stored.name} reconnected`);
+  });
+
   // Player joins
   socket.on('join', (data) => {
     // Support both old format (string) and new format (object)
@@ -433,13 +554,17 @@ io.on('connection', (socket) => {
     const usedAvatars = Object.values(game.players).map(p => p.avatar);
     const avatar = (requestedAvatar && AVATARS.includes(requestedAvatar) && !usedAvatars.includes(requestedAvatar))
       ? requestedAvatar : pickAvatar();
-    game.players[socket.id] = { name: cleanName, score: 0, avatar };
+    const token = generateToken();
+    game.players[socket.id] = { name: cleanName, score: 0, avatar, token };
+
+    // Store persistent identity
+    playersByToken[token] = { name: cleanName, score: 0, avatar, socketId: socket.id, disconnectTimer: null };
 
     // First player becomes host
     const isHost = !game.hostSocket;
     if (isHost) game.hostSocket = socket.id;
 
-    socket.emit('joined', { name: cleanName, avatar, isHost });
+    socket.emit('joined', { name: cleanName, avatar, isHost, token });
     io.emit('player-update', getPlayerList());
     io.emit('sound', 'join');
     console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}`);
@@ -530,39 +655,76 @@ io.on('connection', (socket) => {
     io.emit('player-update', getPlayerList());
   });
 
-  // Disconnect
+  // Disconnect — grace period before removing player
   socket.on('disconnect', () => {
-    if (game.players[socket.id]) {
-      console.log(`${game.players[socket.id].name} disconnected`);
-      delete game.players[socket.id];
-      // Clean up any answers/votes from disconnected player
-      delete game.answers[socket.id];
-      delete game.votes[socket.id];
-      io.emit('player-update', getPlayerList());
+    const player = game.players[socket.id];
+    if (player) {
+      const token = player.token;
+      console.log(`${player.name} disconnected (grace period started)`);
 
-      // If mid-round and everyone remaining has answered/voted, advance
-      if (game.phase === 'prompt' && checkAllAnswered() && Object.keys(game.players).length >= 2) {
-        clearTimeout(game.roundTimer);
-        startVoting();
-      } else if (game.phase === 'vote' && checkAllVoted() && Object.keys(game.players).length >= 2) {
-        tallyAndShowResults();
+      // Update persistent store with latest score
+      if (playersByToken[token]) {
+        playersByToken[token].score = player.score;
       }
 
-      // If all players gone, reset to lobby
-      if (Object.keys(game.players).length === 0) {
-        resetGame();
-        console.log('All players disconnected — reset to lobby');
-      } else if (game.phase !== 'lobby' && Object.keys(game.players).length < 2) {
-        // If fewer than 2 players remain mid-game, end it
-        clearTimeout(game.roundTimer);
-        endGame();
+      // In lobby, remove immediately (no game state to preserve)
+      if (game.phase === 'lobby') {
+        delete game.players[socket.id];
+        if (playersByToken[token]) {
+          clearTimeout(playersByToken[token].disconnectTimer);
+          delete playersByToken[token];
+        }
+        io.emit('player-update', getPlayerList());
+      } else {
+        // Mid-game: keep player in game, start grace timer
+        // Mark as disconnected but don't remove yet
+        if (playersByToken[token]) {
+          playersByToken[token].disconnectTimer = setTimeout(() => {
+            // Grace period expired — remove for real
+            console.log(`${player.name} grace period expired — removed from game`);
+            delete game.players[socket.id];
+            delete game.answers[socket.id];
+            delete game.votes[socket.id];
+            delete playersByToken[token];
+            io.emit('player-update', getPlayerList());
+
+            // Check if game can advance
+            if (game.phase === 'prompt' && checkAllAnswered() && Object.keys(game.players).length >= 2) {
+              clearTimeout(game.roundTimer);
+              startVoting();
+            } else if (game.phase === 'vote' && checkAllVoted() && Object.keys(game.players).length >= 2) {
+              tallyAndShowResults();
+            }
+
+            // If all players gone, reset
+            if (Object.keys(game.players).length === 0) {
+              resetGame();
+              console.log('All players disconnected — reset to lobby');
+            } else if (game.phase !== 'lobby' && Object.keys(game.players).length < 2) {
+              clearTimeout(game.roundTimer);
+              endGame();
+            }
+
+            // Transfer host if needed
+            if (game.hostSocket === socket.id) {
+              const remainingIds = Object.keys(game.players);
+              if (remainingIds.length > 0) {
+                game.hostSocket = remainingIds[0];
+                io.to(game.hostSocket).emit('host-assigned');
+                console.log(`Host transferred to ${game.players[game.hostSocket].name}`);
+              } else {
+                game.hostSocket = null;
+              }
+            }
+          }, RECONNECT_GRACE);
+        }
       }
     }
     if (socket.id === game.tvSocket) {
       game.tvSocket = null;
     }
-    // Transfer host to next player if host disconnected
-    if (socket.id === game.hostSocket) {
+    // Transfer host immediately in lobby
+    if (game.phase === 'lobby' && socket.id === game.hostSocket) {
       const remainingIds = Object.keys(game.players);
       if (remainingIds.length > 0) {
         game.hostSocket = remainingIds[0];

@@ -96,6 +96,7 @@
     let phoneTimer = null;
     let hasSubmitted = false;
     let isHost = false;
+    let myToken = sessionStorage.getItem('hottake-token');
 
     // ── Sound Effects (Web Audio API) ──
     let audioCtx = null;
@@ -204,8 +205,32 @@
       screens[name].classList.remove('hidden');
     }
 
-    // Store socket ID
-    socket.on('connect', () => { myId = socket.id; });
+    // Store socket ID and attempt reconnection
+    socket.on('connect', () => {
+      myId = socket.id;
+      if (myToken) {
+        socket.emit('reconnect-attempt', myToken);
+      }
+    });
+
+    // Reconnection succeeded — restore game state
+    socket.on('reconnected', (data) => {
+      myToken = data.token;
+      document.getElementById('my-avatar').textContent = data.avatar;
+      document.getElementById('waiting-name').textContent = `Welcome back, ${data.name}!`;
+      if (data.isHost) setHost();
+      // The server will follow up with a phase event to put us on the right screen
+      if (data.phase === 'lobby') {
+        showScreen('waiting');
+      }
+    });
+
+    // Token expired or invalid — show join screen
+    socket.on('reconnect-failed', () => {
+      myToken = null;
+      sessionStorage.removeItem('hottake-token');
+      showScreen('join');
+    });
 
     // Sound events from server
     socket.on('sound', (type) => { playSound(type); });
@@ -246,6 +271,8 @@
     }
 
     socket.on('joined', (data) => {
+      myToken = data.token;
+      sessionStorage.setItem('hottake-token', data.token);
       document.getElementById('waiting-name').textContent = `Welcome, ${data.name}!`;
       document.getElementById('my-avatar').textContent = data.avatar;
       if (data.isHost) setHost();
@@ -295,6 +322,7 @@
           if (document.getElementById('my-avatar').textContent) {
             showScreen('waiting');
           }
+          hasSubmitted = false;
           break;
 
         case 'prompt':

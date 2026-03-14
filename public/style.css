@@ -895,5 +895,16 @@ body {
   width: 120px;
 }
 
+/* Drawing card display */
+.drawing-card {
+  background: #f9f9f9;
+  position: relative;
+  overflow: hidden;
+}
+
+.drawing-card img {
+  display: block;
+}
+
 /* Hidden utility */
 .hidden { display: none !important; }

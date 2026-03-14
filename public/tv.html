@@ -453,9 +453,21 @@
           showScreen('vote');
           document.getElementById('vote-prompt-text').textContent = data.prompt || '';
           const grid = document.getElementById('tv-answers');
-          grid.innerHTML = data.answers.map((a, i) =>
-            `<div class="answer-card" style="animation-delay: ${i * 0.15}s">${escapeHtml(a.text)}</div>`
-          ).join('');
+
+          // Render text answers or drawings based on type
+          if (data.answers.length > 0 && data.answers[0].text && data.answers[0].text.startsWith('data:image')) {
+            // Drawing mode
+            grid.innerHTML = data.answers.map((a, i) =>
+              `<div class="answer-card drawing-card" style="animation-delay: ${i * 0.15}s">
+                <img src="${a.text}" alt="Drawing ${i+1}" style="width:100%; height:100%; object-fit:contain;">
+              </div>`
+            ).join('');
+          } else {
+            // Text mode
+            grid.innerHTML = data.answers.map((a, i) =>
+              `<div class="answer-card" style="animation-delay: ${i * 0.15}s">${escapeHtml(a.text)}</div>`
+            ).join('');
+          }
           document.getElementById('vote-status').textContent = 'Vote on your phones!';
 
           // Vote timer bar
@@ -478,13 +490,27 @@
             `Round ${data.round} of ${data.totalRounds} — Results`;
           document.getElementById('tv-commentary').textContent = data.commentary || '';
           const rGrid = document.getElementById('results-answers');
-          rGrid.innerHTML = data.results.map((r, i) =>
-            `<div class="answer-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
-              <div class="answer-text">"${escapeHtml(r.text)}"</div>
-              <div class="vote-count">${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
-              <div class="author">${r.avatar} ${escapeHtml(r.author)}</div>
-            </div>`
-          ).join('');
+
+          // Render text answers or drawings based on type
+          if (data.results.length > 0 && data.results[0].text && data.results[0].text.startsWith('data:image')) {
+            // Drawing mode
+            rGrid.innerHTML = data.results.map((r, i) =>
+              `<div class="answer-card drawing-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
+                <img src="${r.text}" alt="Drawing" style="width:100%; height:100%; object-fit:contain;">
+                <div class="vote-count">${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
+                <div class="author">${r.avatar} ${escapeHtml(r.author)}</div>
+              </div>`
+            ).join('');
+          } else {
+            // Text mode
+            rGrid.innerHTML = data.results.map((r, i) =>
+              `<div class="answer-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
+                <div class="answer-text">"${escapeHtml(r.text)}"</div>
+                <div class="vote-count">${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
+                <div class="author">${r.avatar} ${escapeHtml(r.author)}</div>
+              </div>`
+            ).join('');
+          }
           renderScoreboard('results-scoreboard', data.scoreboard);
           document.getElementById('btn-next').textContent =
             data.round >= data.totalRounds ? 'Final Scores' : 'Next Round';

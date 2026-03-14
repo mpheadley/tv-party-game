@@ -22,6 +22,7 @@
     </div>
     <button class="btn-secondary" id="btn-manage-prompts">⚙️ Manage Prompts</button>
     <button class="btn-secondary" id="btn-manage-settings">⏱️ Game Settings</button>
+    <button class="btn-secondary" id="btn-manage-teams">👥 Teams</button>
     <button class="btn-start" id="btn-start" disabled>Start Game</button>
     <p class="status" id="lobby-status">Waiting for players...</p>
   </div>
@@ -76,6 +77,39 @@
         <p style="opacity:0.5; text-align:center;">No custom prompts yet</p>
       </div>
       <button id="btn-close-prompts" class="btn-start" style="width:100%; margin-top:1rem;">Done</button>
+    </div>
+  </div>
+
+  <!-- TEAMS MODAL -->
+  <div id="teams-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Game Mode</h2>
+      <p style="opacity:0.7;">Play solo or on teams</p>
+
+      <div style="margin:2rem 0;">
+        <label style="display:flex; align-items:center; gap:1rem; cursor:pointer; padding:1rem; background:#f9f9f9; border-radius:0.5rem; margin-bottom:1rem;">
+          <input type="radio" name="game-mode" value="solo" checked style="cursor:pointer;">
+          <span>
+            <strong>Solo Mode</strong>
+            <p style="margin:0.25rem 0 0; opacity:0.6; font-size:0.9rem;">Everyone plays for themselves</p>
+          </span>
+        </label>
+
+        <label style="display:flex; align-items:center; gap:1rem; cursor:pointer; padding:1rem; background:#f9f9f9; border-radius:0.5rem;">
+          <input type="radio" name="game-mode" value="teams" style="cursor:pointer;">
+          <span>
+            <strong>Team Mode</strong>
+            <p style="margin:0.25rem 0 0; opacity:0.6; font-size:0.9rem;">Players divided into competing teams</p>
+          </span>
+        </label>
+      </div>
+
+      <div id="team-count-section" style="display:none;">
+        <label for="team-count-slider">Number of Teams: <span id="team-count-display">2</span></label>
+        <input type="range" id="team-count-slider" min="2" max="6" value="2" style="width:100%;">
+      </div>
+
+      <button id="btn-close-teams" class="btn-start" style="width:100%; margin-top:2rem;">Done</button>
     </div>
   </div>
 
@@ -465,6 +499,10 @@
       socket.emit('play-again');
     });
 
+    // Teams
+    let teamMode = false;
+    let teamCount = 2;
+
     // Game Settings
     let currentSettings = {
       roundTime: 60,
@@ -513,6 +551,42 @@
 
     socket.on('prompt-added', (prompt) => {
       document.getElementById('prompt-input').value = '';
+    });
+
+    // Teams Modal
+    document.getElementById('btn-manage-teams').addEventListener('click', () => {
+      document.getElementById('teams-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-close-teams').addEventListener('click', () => {
+      document.getElementById('teams-modal').classList.add('hidden');
+    });
+
+    // Team mode radio buttons
+    document.querySelectorAll('input[name="game-mode"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        const newTeamMode = e.target.value === 'teams';
+        teamMode = newTeamMode;
+        document.getElementById('team-count-section').style.display = newTeamMode ? 'block' : 'none';
+        socket.emit('set-team-mode', { teamMode: newTeamMode, teamCount });
+      });
+    });
+
+    document.getElementById('team-count-slider').addEventListener('input', (e) => {
+      teamCount = parseInt(e.target.value);
+      document.getElementById('team-count-display').textContent = teamCount;
+      if (teamMode) {
+        socket.emit('set-team-mode', { teamMode, teamCount });
+      }
+    });
+
+    socket.on('team-mode-updated', (data) => {
+      teamMode = data.teamMode;
+      teamCount = data.teamCount;
+      document.querySelector(`input[name="game-mode"][value="${data.teamMode ? 'teams' : 'solo'}"]`).checked = true;
+      document.getElementById('team-count-slider').value = teamCount;
+      document.getElementById('team-count-display').textContent = teamCount;
+      document.getElementById('team-count-section').style.display = data.teamMode ? 'block' : 'none';
     });
 
     // Settings Modal

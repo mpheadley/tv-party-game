@@ -11,6 +11,7 @@ const scoring = require('./src/scoring');
 const hotTakeMode = require('./src/modes/hot-take');
 const promptsModule = require('./src/prompts');
 const settingsModule = require('./src/settings');
+const teamsModule = require('./src/teams');
 
 const app = express();
 const server = http.createServer(app);
@@ -71,6 +72,9 @@ function getPlayerList() {
     name: p.name,
     score: p.score,
     avatar: p.avatar,
+    team: p.team,
+    teamName: p.team && game.teams[p.team] ? game.teams[p.team].name : null,
+    teamColor: p.team && game.teams[p.team] ? game.teams[p.team].color : null,
   }));
 }
 
@@ -94,6 +98,13 @@ function pickAvatar() {
     ? available[Math.floor(Math.random() * available.length)]
     : AVATARS[Math.floor(Math.random() * AVATARS.length)];
 }
+
+function getTeamScoreboard() {
+  return teamsModule.getTeamScoreboard(game.teams);
+}
+
+// Attach helper to game object for use by game-logic
+game._getTeamScoreboard = getTeamScoreboard;
 
 // ── Socket Handlers ──
 io.on('connection', (socket) => {
@@ -210,6 +221,7 @@ io.on('connection', (socket) => {
     // Support both old format (string) and new format (object)
     const name = typeof data === 'string' ? data : data?.name;
     const requestedAvatar = typeof data === 'object' ? data?.avatar : null;
+    const teamId = typeof data === 'object' ? data?.team : null;
 
     if (game.phase !== 'lobby') {
       socket.emit('error-msg', 'Game already in progress! Wait for the next game.');
@@ -225,7 +237,19 @@ io.on('connection', (socket) => {
     const avatar = (requestedAvatar && AVATARS.includes(requestedAvatar) && !usedAvatars.includes(requestedAvatar))
       ? requestedAvatar : pickAvatar();
     const token = generateToken();
-    game.players[socket.id] = { name: cleanName, score: 0, avatar, token };
+
+    // Handle team assignment
+    let assignedTeam = null;
+    if (game.teamMode) {
+      // Auto-assign to smallest team if not specified
+      const targetTeamId = teamId || (teamsModule.getSmallestTeam(game.teams)?.id);
+      if (targetTeamId && game.teams[targetTeamId]) {
+        teamsModule.assignPlayerToTeam(game.teams, targetTeamId, socket.id);
+        assignedTeam = targetTeamId;
+      }
+    }
+
+    game.players[socket.id] = { name: cleanName, score: 0, avatar, token, team: assignedTeam };
 
     // Store persistent identity
     playersByToken[token] = { name: cleanName, score: 0, avatar, socketId: socket.id, disconnectTimer: null };
@@ -234,10 +258,10 @@ io.on('connection', (socket) => {
     const isHost = !game.hostSocket;
     if (isHost) game.hostSocket = socket.id;
 
-    socket.emit('joined', { name: cleanName, avatar, isHost, token });
+    socket.emit('joined', { name: cleanName, avatar, isHost, token, team: assignedTeam });
     io.emit('player-update', getPlayerList());
     io.emit('sound', 'join');
-    console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}`);
+    console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}${assignedTeam ? ` (${game.teams[assignedTeam]?.name})` : ''}`);
   });
 
   // Update game settings (TV only, host only)
@@ -299,6 +323,26 @@ io.on('connection', (socket) => {
       console.log(`Removed custom prompt at index ${index}`);
     } else {
       socket.emit('error-msg', 'Invalid prompt index');
+    }
+  });
+
+  // Toggle team mode (TV only, host only, lobby only)
+  socket.on('set-team-mode', (data) => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
+    if (game.phase !== 'lobby') return;
+
+    const teamMode = Boolean(data.teamMode);
+    const teamCount = Math.max(2, Math.min(6, parseInt(data.teamCount) || 2));
+
+    if (game.teamMode !== teamMode || (teamMode && Object.keys(game.teams).length !== teamCount)) {
+      game.teamMode = teamMode;
+      if (teamMode) {
+        game.teams = teamsModule.createTeams(teamCount);
+      } else {
+        game.teams = {};
+      }
+      io.emit('team-mode-updated', { teamMode, teamCount, teams: game.teams });
+      console.log(`Team mode: ${teamMode ? `ON (${teamCount} teams)` : 'OFF'}`);
     }
   });
 
@@ -368,7 +412,28 @@ io.on('connection', (socket) => {
 
     if (gameLogic.checkAllVoted(game)) {
       const scorer = scoring.getScorerForMode(game.gameMode);
-      const scoreRound = (game, voteCounts) => scorer(game, voteCounts, playersByToken);
+      let scoreRound;
+
+      if (game.teamMode) {
+        // Team mode: award points to team instead of individual
+        scoreRound = (game, voteCounts) => {
+          for (const [answerId, count] of Object.entries(voteCounts)) {
+            teamsModule.scoreTeamRound(game.teams, answerId, count);
+            // Also update player's personal score for tracking
+            if (game.players[answerId]) {
+              game.players[answerId].score += count;
+              const token = game.players[answerId].token;
+              if (token && playersByToken[token]) {
+                playersByToken[token].score = game.players[answerId].score;
+              }
+            }
+          }
+        };
+      } else {
+        // Solo mode: use regular scoring
+        scoreRound = (game, voteCounts) => scorer(game, voteCounts, playersByToken);
+      }
+
       gameLogic.tallyAndShowResults(game, io, scoreRound);
     }
   });

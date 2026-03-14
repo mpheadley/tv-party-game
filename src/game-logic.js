@@ -194,14 +194,22 @@ function tallyAndShowResults(game, io, scoreRound) {
     .map(([id, p]) => ({ id, name: p.name, score: p.score, avatar: p.avatar }))
     .sort((a, b) => b.score - a.score);
 
-  io.emit('phase', {
+  // Build team scoreboard if in team mode (requires teams module)
+  const payload = {
     phase: 'results',
     results,
     scoreboard,
     round: game.round,
     totalRounds: game.totalRounds,
     commentary: getRandomCommentary(),
-  });
+  };
+
+  // Add team scoreboard if available (passed as context)
+  if (game.teamMode && game._getTeamScoreboard) {
+    payload.teamScoreboard = game._getTeamScoreboard();
+  }
+
+  io.emit('phase', payload);
 }
 
 /**
@@ -213,7 +221,15 @@ function endGame(game, io) {
   const scoreboard = Object.entries(game.players)
     .map(([id, p]) => ({ id, name: p.name, score: p.score, avatar: p.avatar }))
     .sort((a, b) => b.score - a.score);
-  io.emit('phase', { phase: 'gameover', scoreboard });
+
+  const payload = { phase: 'gameover', scoreboard };
+
+  // Add team scoreboard if in team mode
+  if (game.teamMode && game._getTeamScoreboard) {
+    payload.teamScoreboard = game._getTeamScoreboard();
+  }
+
+  io.emit('phase', payload);
 }
 
 /**

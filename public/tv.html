@@ -20,6 +20,7 @@
       <button class="round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>
       <button class="round-option" data-rounds="15">Long<br><span>~22 min</span></button>
     </div>
+    <button class="btn-secondary" id="btn-manage-prompts">⚙️ Manage Prompts</button>
     <button class="btn-start" id="btn-start" disabled>Start Game</button>
     <p class="status" id="lobby-status">Waiting for players...</p>
   </div>
@@ -59,6 +60,22 @@
     <div class="scoreboard" id="final-scoreboard"></div>
     <button class="btn-start" id="btn-again" style="margin-top:2rem;">Play Again</button>
     <canvas id="confetti-canvas"></canvas>
+  </div>
+
+  <!-- CUSTOM PROMPTS MODAL -->
+  <div id="prompts-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Manage Custom Prompts</h2>
+      <p style="opacity:0.7;">Add your own prompts (max 50, 5-200 chars each)</p>
+      <div style="display:flex; gap:0.5rem; margin:1rem 0;">
+        <input type="text" id="prompt-input" placeholder="Type a custom prompt..." maxlength="200" style="flex:1; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        <button id="btn-add-prompt" class="btn-start" style="margin:0;">Add</button>
+      </div>
+      <div id="custom-prompts-list" style="max-height:300px; overflow-y:auto; margin:1rem 0;">
+        <p style="opacity:0.5; text-align:center;">No custom prompts yet</p>
+      </div>
+      <button id="btn-close-prompts" class="btn-start" style="width:100%; margin-top:1rem;">Done</button>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -413,6 +430,68 @@
     document.getElementById('btn-again').addEventListener('click', () => {
       socket.emit('play-again');
     });
+
+    // Custom Prompts Management
+    let currentCustomPrompts = [];
+
+    socket.on('game-state', (data) => {
+      currentCustomPrompts = data.customPrompts || [];
+      renderCustomPromptsList();
+    });
+
+    socket.on('custom-prompts-update', (prompts) => {
+      currentCustomPrompts = prompts || [];
+      renderCustomPromptsList();
+    });
+
+    socket.on('prompt-added', (prompt) => {
+      document.getElementById('prompt-input').value = '';
+    });
+
+    document.getElementById('btn-manage-prompts').addEventListener('click', () => {
+      document.getElementById('prompts-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-close-prompts').addEventListener('click', () => {
+      document.getElementById('prompts-modal').classList.add('hidden');
+    });
+
+    document.getElementById('btn-add-prompt').addEventListener('click', () => {
+      const input = document.getElementById('prompt-input');
+      const text = input.value.trim();
+      if (text.length > 0) {
+        socket.emit('add-custom-prompt', text);
+      }
+    });
+
+    // Allow Enter key to add prompt
+    document.getElementById('prompt-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('btn-add-prompt').click();
+      }
+    });
+
+    function renderCustomPromptsList() {
+      const list = document.getElementById('custom-prompts-list');
+      if (currentCustomPrompts.length === 0) {
+        list.innerHTML = '<p style="opacity:0.5; text-align:center;">No custom prompts yet</p>';
+        return;
+      }
+      list.innerHTML = currentCustomPrompts.map((prompt, i) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem; border-bottom:1px solid #eee;">
+          <span>${escapeHtml(prompt)}</span>
+          <button class="btn-remove-prompt" data-index="${i}" style="padding:0.25rem 0.5rem; font-size:0.9rem;">✕</button>
+        </div>
+      `).join('');
+
+      // Add event listeners to remove buttons
+      document.querySelectorAll('.btn-remove-prompt').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const index = parseInt(btn.dataset.index);
+          socket.emit('remove-custom-prompt', index);
+        });
+      });
+    }
 
     // Helpers
     function renderScoreboard(elementId, scoreboard) {

@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const gameLogic = require('./src/game-logic');
 const scoring = require('./src/scoring');
 const hotTakeMode = require('./src/modes/hot-take');
+const promptsModule = require('./src/prompts');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,10 @@ const RECONNECT_GRACE = 30000; // 30 seconds grace period for disconnected playe
 let playersByToken = {};
 
 let game = gameLogic.createGameState();
+
+// Load custom prompts from file
+let customPrompts = promptsModule.loadCustomPrompts();
+game.customSettings.customPromptList = customPrompts;
 
 // Helper functions
 
@@ -110,6 +115,7 @@ io.on('connection', (socket) => {
       ip: getLocalIP(),
       port: PORT,
       qrDataUrl,
+      customPrompts,
     });
   });
 
@@ -227,6 +233,46 @@ io.on('connection', (socket) => {
     console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}`);
   });
 
+  // Add custom prompt (TV only, host only)
+  socket.on('add-custom-prompt', (text) => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
+    if (game.phase !== 'lobby') {
+      socket.emit('error-msg', 'Can only manage prompts in lobby');
+      return;
+    }
+
+    const added = promptsModule.addCustomPrompt(customPrompts, text);
+    if (added) {
+      promptsModule.saveCustomPrompts(customPrompts);
+      game.customSettings.customPromptList = customPrompts;
+      io.emit('custom-prompts-update', customPrompts);
+      socket.emit('prompt-added', added);
+      console.log(`Added custom prompt: "${added}"`);
+    } else {
+      socket.emit('error-msg', 'Invalid prompt (must be 5-200 chars, not a duplicate, max 50)');
+    }
+  });
+
+  // Remove custom prompt (TV only, host only)
+  socket.on('remove-custom-prompt', (index) => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
+    if (game.phase !== 'lobby') {
+      socket.emit('error-msg', 'Can only manage prompts in lobby');
+      return;
+    }
+
+    const removed = promptsModule.removeCustomPrompt(customPrompts, index);
+    if (removed) {
+      promptsModule.saveCustomPrompts(customPrompts);
+      game.customSettings.customPromptList = customPrompts;
+      io.emit('custom-prompts-update', customPrompts);
+      socket.emit('prompt-removed');
+      console.log(`Removed custom prompt at index ${index}`);
+    } else {
+      socket.emit('error-msg', 'Invalid prompt index');
+    }
+  });
+
   // Start game (from TV or host phone)
   socket.on('start-game', (rounds) => {
     if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
@@ -241,7 +287,8 @@ io.on('connection', (socket) => {
       game.totalRounds = rounds;
     }
     io.emit('sound', 'round-start');
-    const pickPromptFn = () => hotTakeMode.pickPrompt(game);
+    // Use prompts module with custom prompts
+    const pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
     gameLogic.startRound(game, pickPromptFn, io);
   });
 
@@ -304,7 +351,7 @@ io.on('connection', (socket) => {
       gameLogic.endGame(game, io);
     } else {
       io.emit('sound', 'round-start');
-      const pickPromptFn = () => hotTakeMode.pickPrompt(game);
+      const pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
       gameLogic.startRound(game, pickPromptFn, io);
     }
   });

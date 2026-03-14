@@ -21,6 +21,7 @@
       <button class="round-option" data-rounds="15">Long<br><span>~22 min</span></button>
     </div>
     <button class="btn-secondary" id="btn-manage-prompts">⚙️ Manage Prompts</button>
+    <button class="btn-secondary" id="btn-manage-settings">⏱️ Game Settings</button>
     <button class="btn-start" id="btn-start" disabled>Start Game</button>
     <p class="status" id="lobby-status">Waiting for players...</p>
   </div>
@@ -75,6 +76,39 @@
         <p style="opacity:0.5; text-align:center;">No custom prompts yet</p>
       </div>
       <button id="btn-close-prompts" class="btn-start" style="width:100%; margin-top:1rem;">Done</button>
+    </div>
+  </div>
+
+  <!-- GAME SETTINGS MODAL -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Game Settings</h2>
+      <p style="opacity:0.7;">Customize the game experience</p>
+
+      <div class="setting-group">
+        <label for="round-time-slider">Answer Time: <span id="round-time-display">60</span>s</label>
+        <input type="range" id="round-time-slider" min="20" max="180" value="60" style="width:100%;">
+        <p style="opacity:0.6; font-size:0.9rem;">How long players have to answer (20-180 sec)</p>
+      </div>
+
+      <div class="setting-group">
+        <label for="vote-time-slider">Vote Time: <span id="vote-time-display">20</span>s</label>
+        <input type="range" id="vote-time-slider" min="10" max="60" value="20" style="width:100%;">
+        <p style="opacity:0.6; font-size:0.9rem;">How long to vote (10-60 sec)</p>
+      </div>
+
+      <div class="setting-group">
+        <label for="total-rounds-slider">Total Rounds: <span id="total-rounds-display">10</span></label>
+        <input type="range" id="total-rounds-slider" min="3" max="20" value="10" style="width:100%;">
+        <p style="opacity:0.6; font-size:0.9rem;">Number of rounds to play (3-20)</p>
+      </div>
+
+      <div style="background:#f5f5f5; padding:1rem; border-radius:0.5rem; margin:1rem 0; text-align:center;">
+        <p style="margin:0; opacity:0.7;">Estimated game time:</p>
+        <p style="margin:0.5rem 0 0; font-size:1.3rem; font-weight:bold; color:#667eea;" id="estimated-duration">~15 min</p>
+      </div>
+
+      <button id="btn-close-settings" class="btn-start" style="width:100%;">Done</button>
     </div>
   </div>
 
@@ -431,11 +465,33 @@
       socket.emit('play-again');
     });
 
+    // Game Settings
+    let currentSettings = {
+      roundTime: 60,
+      voteTime: 20,
+      totalRounds: 10,
+    };
+
+    function updateEstimatedDuration() {
+      const duration = Math.round(((currentSettings.roundTime + currentSettings.voteTime + 5) / 60) * currentSettings.totalRounds);
+      document.getElementById('estimated-duration').textContent = `~${duration} min`;
+    }
+
     // Custom Prompts Management
     let currentCustomPrompts = [];
 
     socket.on('game-state', (data) => {
       currentCustomPrompts = data.customPrompts || [];
+      if (data.settings) {
+        currentSettings = data.settings;
+        document.getElementById('round-time-slider').value = data.settings.roundTime;
+        document.getElementById('round-time-display').textContent = data.settings.roundTime;
+        document.getElementById('vote-time-slider').value = data.settings.voteTime;
+        document.getElementById('vote-time-display').textContent = data.settings.voteTime;
+        document.getElementById('total-rounds-slider').value = data.settings.totalRounds;
+        document.getElementById('total-rounds-display').textContent = data.settings.totalRounds;
+        updateEstimatedDuration();
+      }
       renderCustomPromptsList();
     });
 
@@ -444,10 +500,56 @@
       renderCustomPromptsList();
     });
 
+    socket.on('settings-updated', (settings) => {
+      currentSettings = settings;
+      document.getElementById('round-time-slider').value = settings.roundTime;
+      document.getElementById('round-time-display').textContent = settings.roundTime;
+      document.getElementById('vote-time-slider').value = settings.voteTime;
+      document.getElementById('vote-time-display').textContent = settings.voteTime;
+      document.getElementById('total-rounds-slider').value = settings.totalRounds;
+      document.getElementById('total-rounds-display').textContent = settings.totalRounds;
+      updateEstimatedDuration();
+    });
+
     socket.on('prompt-added', (prompt) => {
       document.getElementById('prompt-input').value = '';
     });
 
+    // Settings Modal
+    document.getElementById('btn-manage-settings').addEventListener('click', () => {
+      document.getElementById('settings-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-close-settings').addEventListener('click', () => {
+      document.getElementById('settings-modal').classList.add('hidden');
+    });
+
+    // Settings Sliders
+    document.getElementById('round-time-slider').addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      document.getElementById('round-time-display').textContent = value;
+      currentSettings.roundTime = value;
+      updateEstimatedDuration();
+      socket.emit('update-settings', { roundTime: value });
+    });
+
+    document.getElementById('vote-time-slider').addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      document.getElementById('vote-time-display').textContent = value;
+      currentSettings.voteTime = value;
+      updateEstimatedDuration();
+      socket.emit('update-settings', { voteTime: value });
+    });
+
+    document.getElementById('total-rounds-slider').addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      document.getElementById('total-rounds-display').textContent = value;
+      currentSettings.totalRounds = value;
+      updateEstimatedDuration();
+      socket.emit('update-settings', { totalRounds: value });
+    });
+
+    // Prompts Modal
     document.getElementById('btn-manage-prompts').addEventListener('click', () => {
       document.getElementById('prompts-modal').classList.remove('hidden');
     });

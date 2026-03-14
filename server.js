@@ -10,6 +10,7 @@ const gameLogic = require('./src/game-logic');
 const scoring = require('./src/scoring');
 const hotTakeMode = require('./src/modes/hot-take');
 const promptsModule = require('./src/prompts');
+const settingsModule = require('./src/settings');
 
 const app = express();
 const server = http.createServer(app);
@@ -116,6 +117,12 @@ io.on('connection', (socket) => {
       port: PORT,
       qrDataUrl,
       customPrompts,
+      settings: {
+        roundTime: game.customSettings.roundTime,
+        voteTime: game.customSettings.voteTime,
+        totalRounds: game.customSettings.totalRounds,
+        estimatedDuration: settingsModule.getEstimatedDuration(game.customSettings),
+      },
     });
   });
 
@@ -231,6 +238,28 @@ io.on('connection', (socket) => {
     io.emit('player-update', getPlayerList());
     io.emit('sound', 'join');
     console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}`);
+  });
+
+  // Update game settings (TV only, host only)
+  socket.on('update-settings', (updates) => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
+    if (game.phase !== 'lobby') {
+      socket.emit('error-msg', 'Can only change settings in lobby');
+      return;
+    }
+
+    const { settings, changed } = settingsModule.updateSettings(game.customSettings, updates);
+    if (changed) {
+      game.customSettings = settings;
+      game.totalRounds = settings.totalRounds;
+      io.emit('settings-updated', {
+        roundTime: settings.roundTime,
+        voteTime: settings.voteTime,
+        totalRounds: settings.totalRounds,
+        estimatedDuration: settingsModule.getEstimatedDuration(settings),
+      });
+      console.log(`Settings updated:`, settings);
+    }
   });
 
   // Add custom prompt (TV only, host only)

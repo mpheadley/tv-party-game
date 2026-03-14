@@ -28,6 +28,10 @@
 
   <!-- WAITING IN LOBBY -->
   <div id="screen-waiting" class="phone-container hidden">
+    <div id="game-mode-indicator" style="text-align:center; margin-bottom:1rem; padding:0.5rem; background:#f0f0f0; border-radius:0.5rem;">
+      <p style="margin:0; opacity:0.7; font-size:0.9rem;">Game Mode</p>
+      <p id="current-mode-display" style="margin:0.5rem 0 0; font-size:1.2rem; font-weight:bold;">🔥 Hot Take</p>
+    </div>
     <div class="phone-avatar" id="my-avatar"></div>
     <h1>You're In!</h1>
     <p class="waiting-msg" id="waiting-name"></p>
@@ -47,6 +51,9 @@
 
   <!-- ANSWER PROMPT (Text) -->
   <div id="screen-answer" class="phone-container hidden">
+    <div class="screen-header">
+      <p id="screen-mode-indicator" style="font-size:0.9rem; opacity:0.7; margin:0;"></p>
+    </div>
     <p class="phone-prompt" id="phone-prompt"></p>
     <div class="phone-timer" id="phone-timer"></div>
     <div class="phone-answer">
@@ -266,6 +273,18 @@
     function showScreen(name) {
       Object.values(screens).forEach(s => s.classList.add('hidden'));
       screens[name].classList.remove('hidden');
+
+      // Update mode indicator if screen has one
+      const modeIndicator = document.getElementById('screen-mode-indicator');
+      if (modeIndicator) {
+        const modeEmoji = {
+          'hot-take': '🔥',
+          'speed-drawing': '🎨',
+          'pictionary': '🎭',
+        }[currentGameMode] || '';
+
+        modeIndicator.textContent = `${modeEmoji} ${currentGameMode.replace('-', ' ')}`;
+      }
     }
 
     // Initialize drawing canvas
@@ -400,7 +419,24 @@
     // Listen for game mode changes
     socket.on('game-mode-updated', (mode) => {
       currentGameMode = mode;
+      updateModeDisplay(mode);
     });
+
+    function updateModeDisplay(mode) {
+      const modeDisplay = document.getElementById('current-mode-display');
+      if (!modeDisplay) return;
+
+      const modeMap = {
+        'hot-take': '🔥 Hot Take',
+        'speed-drawing': '🎨 Speed Drawing',
+        'pictionary': '🎭 Pictionary',
+      };
+
+      modeDisplay.textContent = modeMap[mode] || mode;
+    }
+
+    // Set initial mode display
+    updateModeDisplay(currentGameMode);
 
     // Store socket ID and attempt reconnection
     socket.on('connect', () => {

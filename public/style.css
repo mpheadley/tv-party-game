@@ -906,5 +906,14 @@ body {
   display: block;
 }
 
+/* Screen header for mode indicator */
+.screen-header {
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 /* Hidden utility */
 .hidden { display: none !important; }

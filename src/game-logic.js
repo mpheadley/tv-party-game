@@ -54,6 +54,7 @@ function startRound(game, pickPrompt, io) {
   game.answers = {};
   game.votes = {};
   game.drawings = {};
+  game.guesses = {};
 
   const payload = {
     phase: 'prompt',
@@ -278,6 +279,9 @@ function resetGame(game, playersByToken) {
   game.votes = {};
   game.usedPrompts = [];
   game.drawings = {};
+  game.guesses = {};
+  game.currentDrawer = null;
+  game.currentDrawerTeamId = null;
 
   for (const id of Object.keys(game.players)) {
     game.players[id].score = 0;

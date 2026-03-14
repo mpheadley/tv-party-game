@@ -621,7 +621,45 @@
           break;
 
         case 'vote':
-          showScreen('vote');
+          if (data.gameMode === 'pictionary' && data.isDrawer) {
+            showScreen('pictionaryVote');
+            // Render guesses for drawer to approve/reject
+            const guessesDiv = document.getElementById('pictionary-guesses');
+            guessesDiv.innerHTML = data.answers.map((a, i) =>
+              `<div class="guess-approval" data-guesser-id="${a.id}" style="display:flex; gap:1rem; padding:1rem; background:#f9f9f9; border-radius:0.5rem; margin:0.5rem 0; align-items:center;">
+                <span style="flex:1; font-weight:bold;">${escapeHtml(a.text)}</span>
+                <button class="btn-approve" style="background:#4CAF50; color:white; border:none; padding:0.5rem 1rem; border-radius:0.3rem; cursor:pointer;">✓ Yes</button>
+                <button class="btn-reject" style="background:#f44336; color:white; border:none; padding:0.5rem 1rem; border-radius:0.3rem; cursor:pointer;">✗ No</button>
+              </div>`
+            ).join('');
+
+            // Add event listeners
+            let votedCount = 0;
+            document.querySelectorAll('.guess-approval').forEach(guessDiv => {
+              const guesserId = guessDiv.dataset.guesserId;
+              guessDiv.querySelector('.btn-approve').addEventListener('click', () => {
+                socket.emit('vote', { guesserId, approved: true });
+                guessDiv.style.opacity = '0.5';
+                guessDiv.querySelector('.btn-approve').disabled = true;
+                guessDiv.querySelector('.btn-reject').disabled = true;
+                votedCount++;
+                if (votedCount >= document.querySelectorAll('.guess-approval').length) {
+                  showScreen('voted');
+                }
+              });
+              guessDiv.querySelector('.btn-reject').addEventListener('click', () => {
+                socket.emit('vote', { guesserId, approved: false });
+                guessDiv.style.opacity = '0.5';
+                guessDiv.querySelector('.btn-approve').disabled = true;
+                guessDiv.querySelector('.btn-reject').disabled = true;
+                votedCount++;
+                if (votedCount >= document.querySelectorAll('.guess-approval').length) {
+                  showScreen('voted');
+                }
+              });
+            });
+          } else {
+            showScreen('vote');
           vibrate(150);
           document.getElementById('vote-prompt-reminder').textContent = data.prompt || '';
           const options = document.getElementById('vote-options');

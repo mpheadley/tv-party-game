@@ -125,23 +125,43 @@ function startVoting(game, io) {
       phase: 'vote',
       answers: answerList,
       prompt: game.currentPrompt,
+      gameMode: game.gameMode,
+      currentDrawer: game.currentDrawer,
       round: game.round,
       totalRounds: game.totalRounds,
       timeLimit: game.customSettings.voteTime,
     });
   }
 
-  // Send each player only answers they can vote on (not their own)
+  // Send each player the appropriate voting data
   for (const playerId of Object.keys(game.players)) {
-    const filtered = answerList.filter(a => a.id !== playerId);
-    io.to(playerId).emit('phase', {
+    let payload = {
       phase: 'vote',
-      answers: filtered,
       prompt: game.currentPrompt,
+      gameMode: game.gameMode,
+      isDrawer: playerId === game.currentDrawer,
+      currentDrawer: game.currentDrawer,
       round: game.round,
       totalRounds: game.totalRounds,
       timeLimit: game.customSettings.voteTime,
-    });
+    };
+
+    if (game.gameMode === 'pictionary') {
+      // In pictionary, drawer sees guesses, others see drawing
+      if (playerId === game.currentDrawer) {
+        // Drawer votes on guesses
+        payload.answers = answerList;
+      } else {
+        // Others see the drawing being drawn (during voting = results phase for them)
+        payload.answers = []; // They don't vote, just wait
+      }
+    } else {
+      // Regular mode: filtered answers
+      const filtered = answerList.filter(a => a.id !== playerId);
+      payload.answers = filtered;
+    }
+
+    io.to(playerId).emit('phase', payload);
   }
 
   // Auto-advance voting after timeout

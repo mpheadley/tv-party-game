@@ -452,22 +452,56 @@
 
         case 'vote':
           showScreen('vote');
-          document.getElementById('vote-prompt-text').textContent = data.prompt || '';
-          const grid = document.getElementById('tv-answers');
 
-          // Render text answers or drawings based on type
-          if (data.answers.length > 0 && data.answers[0].text && data.answers[0].text.startsWith('data:image')) {
-            // Drawing mode
-            grid.innerHTML = data.answers.map((a, i) =>
-              `<div class="answer-card drawing-card" style="animation-delay: ${i * 0.15}s">
-                <img src="${a.text}" alt="Drawing ${i+1}" style="width:100%; height:100%; object-fit:contain;">
+          if (currentGameMode === 'pictionary') {
+            // Pictionary voting: show drawing + guesses
+            document.getElementById('vote-prompt-text').textContent = 'Approve the guesses!';
+            const grid = document.getElementById('tv-answers');
+
+            // Show the drawing prominently
+            let drawingHtml = '';
+            if (data.answers.length > 0) {
+              const drawingData = data.answers[0].text; // The drawing
+              if (drawingData.startsWith('data:image')) {
+                drawingHtml = `<div style="text-align:center; margin-bottom:2rem;">
+                  <p style="opacity:0.7; margin-bottom:1rem;">The Drawing:</p>
+                  <img src="${drawingData}" alt="Drawing" style="max-width:300px; max-height:300px; border:2px solid #667eea; border-radius:0.5rem;">
+                </div>`;
+              }
+            }
+
+            // Show guesses as a list (will be replaced with approval buttons)
+            const guessesList = data.answers.slice(1).map((a, i) =>
+              `<div class="guess-item" data-index="${i}" style="padding:1rem; background:#f9f9f9; border-radius:0.5rem; margin:0.5rem 0; cursor:pointer; transition:all 0.2s;">
+                <strong>${escapeHtml(a.text)}</strong>
               </div>`
             ).join('');
+
+            grid.innerHTML = drawingHtml + `
+              <div style="background:#f0f0f0; padding:2rem; border-radius:0.5rem;">
+                <p style="margin:0 0 1rem; font-weight:bold;">Guesses to review:</p>
+                ${guessesList}
+              </div>
+            `;
           } else {
-            // Text mode
-            grid.innerHTML = data.answers.map((a, i) =>
-              `<div class="answer-card" style="animation-delay: ${i * 0.15}s">${escapeHtml(a.text)}</div>`
-            ).join('');
+            // Regular voting (Hot Take or Speed Drawing)
+            document.getElementById('vote-prompt-text').textContent = data.prompt || '';
+            const grid = document.getElementById('tv-answers');
+
+            // Render text answers or drawings based on type
+            if (data.answers.length > 0 && data.answers[0].text && data.answers[0].text.startsWith('data:image')) {
+              // Drawing mode
+              grid.innerHTML = data.answers.map((a, i) =>
+                `<div class="answer-card drawing-card" style="animation-delay: ${i * 0.15}s">
+                  <img src="${a.text}" alt="Drawing ${i+1}" style="width:100%; height:100%; object-fit:contain;">
+                </div>`
+              ).join('');
+            } else {
+              // Text mode
+              grid.innerHTML = data.answers.map((a, i) =>
+                `<div class="answer-card" style="animation-delay: ${i * 0.15}s">${escapeHtml(a.text)}</div>`
+              ).join('');
+            }
           }
           document.getElementById('vote-status').textContent = 'Vote on your phones!';
 

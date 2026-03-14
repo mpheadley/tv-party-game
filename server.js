@@ -491,28 +491,62 @@ io.on('connection', (socket) => {
       // When drawer has voted on all guesses
       if (Object.keys(game.votes).length >= Object.keys(game.guesses).length) {
         // Score pictionary: drawer gets points for correct guesses, guessers get points if approved
-        const scoreRound = (game, voteCounts) => {
-          for (const [guesserId, approved] of Object.entries(game.votes)) {
-            if (approved) {
-              // Guesser was correct
-              if (game.players[guesserId]) {
-                game.players[guesserId].score += 1;
-                const token = game.players[guesserId].token;
-                if (token && playersByToken[token]) {
-                  playersByToken[token].score = game.players[guesserId].score;
+        let scoreRound;
+
+        if (game.teamMode) {
+          // Team mode: award points to teams
+          scoreRound = (game, voteCounts) => {
+            for (const [guesserId, approved] of Object.entries(game.votes)) {
+              if (approved) {
+                // Guesser's team gets point
+                teamsModule.scoreTeamRound(game.teams, guesserId, 1);
+                // Also update individual score
+                if (game.players[guesserId]) {
+                  game.players[guesserId].score += 1;
+                  const token = game.players[guesserId].token;
+                  if (token && playersByToken[token]) {
+                    playersByToken[token].score = game.players[guesserId].score;
+                  }
                 }
-              }
-              // Drawer gets point for correct guess
-              if (game.players[game.currentDrawer]) {
-                game.players[game.currentDrawer].score += 1;
-                const token = game.players[game.currentDrawer].token;
-                if (token && playersByToken[token]) {
-                  playersByToken[token].score = game.players[game.currentDrawer].score;
+
+                // Drawer's team gets point too
+                teamsModule.scoreTeamRound(game.teams, game.currentDrawer, 1);
+                // Also update individual drawer score
+                if (game.players[game.currentDrawer]) {
+                  game.players[game.currentDrawer].score += 1;
+                  const token = game.players[game.currentDrawer].token;
+                  if (token && playersByToken[token]) {
+                    playersByToken[token].score = game.players[game.currentDrawer].score;
+                  }
                 }
               }
             }
-          }
-        };
+          };
+        } else {
+          // Solo mode: individual scoring
+          scoreRound = (game, voteCounts) => {
+            for (const [guesserId, approved] of Object.entries(game.votes)) {
+              if (approved) {
+                // Guesser was correct
+                if (game.players[guesserId]) {
+                  game.players[guesserId].score += 1;
+                  const token = game.players[guesserId].token;
+                  if (token && playersByToken[token]) {
+                    playersByToken[token].score = game.players[guesserId].score;
+                  }
+                }
+                // Drawer gets point for correct guess
+                if (game.players[game.currentDrawer]) {
+                  game.players[game.currentDrawer].score += 1;
+                  const token = game.players[game.currentDrawer].token;
+                  if (token && playersByToken[token]) {
+                    playersByToken[token].score = game.players[game.currentDrawer].score;
+                  }
+                }
+              }
+            }
+          };
+        }
 
         gameLogic.tallyAndShowResults(game, io, scoreRound);
       }

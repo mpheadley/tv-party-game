@@ -13,6 +13,7 @@ const promptsModule = require('./src/prompts');
 const settingsModule = require('./src/settings');
 const teamsModule = require('./src/teams');
 const speedDrawingMode = require('./src/modes/speed-drawing');
+const pictionaryMode = require('./src/modes/pictionary');
 
 const app = express();
 const server = http.createServer(app);
@@ -375,10 +376,18 @@ io.on('connection', (socket) => {
     }
     io.emit('sound', 'round-start');
 
+    // Pictionary: assign drawer
+    if (game.gameMode === 'pictionary') {
+      game.currentDrawer = pictionaryMode.assignDrawer(game, teamsModule);
+      console.log(`Drawer assigned: ${game.players[game.currentDrawer]?.name}`);
+    }
+
     // Get appropriate prompt picker for game mode
     let pickPromptFn;
     if (game.gameMode === 'speed-drawing') {
       pickPromptFn = () => speedDrawingMode.pickPrompt(game, customPrompts);
+    } else if (game.gameMode === 'pictionary') {
+      pickPromptFn = () => pictionaryMode.pickWord(game, customPrompts);
     } else {
       // Hot Take (default)
       pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
@@ -387,88 +396,172 @@ io.on('connection', (socket) => {
     gameLogic.startRound(game, pickPromptFn, io);
   });
 
-  // Player submits answer (text or drawing)
+  // Player submits answer (text, drawing, or guess for pictionary)
   socket.on('answer', (data) => {
     if (game.phase !== 'prompt') return;
-    // Prevent duplicate submissions
-    if (game.answers[socket.id]) return;
 
-    let answer = null;
+    if (game.gameMode === 'pictionary') {
+      // Pictionary: only non-drawers can submit guesses
+      if (socket.id === game.currentDrawer) return; // Drawer doesn't guess
+      if (game.guesses[socket.id]) return; // Already guessed
 
-    if (game.gameMode === 'speed-drawing') {
-      // Drawing submission
-      const imageData = speedDrawingMode.validateDrawing(data);
-      if (!imageData) return;
-      answer = imageData;
-      game.drawings[socket.id] = imageData;
+      const guess = pictionaryMode.validateGuess(data);
+      if (!guess) return;
+
+      game.guesses[socket.id] = guess;
+      socket.emit('answer-received');
+      io.emit('sound', 'submit');
+
+      // Count non-drawer players
+      const nonDrawerCount = Object.keys(game.players).length - 1;
+      const guessedCount = Object.keys(game.guesses).length;
+
+      io.emit('answer-progress', {
+        answered: guessedCount,
+        total: nonDrawerCount,
+      });
+
+      // If all non-drawers have guessed, go to voting
+      if (guessedCount >= nonDrawerCount) {
+        clearTimeout(game.roundTimer);
+        gameLogic.startVoting(game, io);
+      }
     } else {
-      // Text submission (Hot Take)
-      const text = hotTakeMode.validateAnswer(data);
-      if (!text) return;
-      answer = text;
-    }
+      // Speed Drawing or Hot Take
+      // Prevent duplicate submissions
+      if (game.answers[socket.id]) return;
 
-    game.answers[socket.id] = answer;
-    socket.emit('answer-received');
-    io.emit('sound', 'submit');
+      let answer = null;
 
-    io.emit('answer-progress', {
-      answered: Object.keys(game.answers).length,
-      total: Object.keys(game.players).length,
-    });
+      if (game.gameMode === 'speed-drawing') {
+        // Drawing submission
+        const imageData = speedDrawingMode.validateDrawing(data);
+        if (!imageData) return;
+        answer = imageData;
+        game.drawings[socket.id] = imageData;
+      } else {
+        // Text submission (Hot Take)
+        const text = hotTakeMode.validateAnswer(data);
+        if (!text) return;
+        answer = text;
+      }
 
-    if (gameLogic.checkAllAnswered(game)) {
-      clearTimeout(game.roundTimer);
-      gameLogic.startVoting(game, io);
+      game.answers[socket.id] = answer;
+      socket.emit('answer-received');
+      io.emit('sound', 'submit');
+
+      io.emit('answer-progress', {
+        answered: Object.keys(game.answers).length,
+        total: Object.keys(game.players).length,
+      });
+
+      if (gameLogic.checkAllAnswered(game)) {
+        clearTimeout(game.roundTimer);
+        gameLogic.startVoting(game, io);
+      }
     }
   });
 
-  // Player votes
-  socket.on('vote', (answerId) => {
+  // Player votes (regular or pictionary approval)
+  socket.on('vote', (data) => {
     if (game.phase !== 'vote') return;
-    // Prevent duplicate votes
-    if (game.votes[socket.id]) return;
-    // Can't vote for yourself
-    if (answerId === socket.id) {
-      socket.emit('error-msg', "Can't vote for your own answer!");
-      return;
-    }
-    // Validate answerId exists
-    if (!game.answers[answerId]) return;
 
-    game.votes[socket.id] = answerId;
-    socket.emit('vote-received');
+    if (game.gameMode === 'pictionary') {
+      // Pictionary: data = { guesserId, approved: bool }
+      const guesserId = data.guesserId;
+      const approved = Boolean(data.approved);
 
-    io.emit('vote-progress', {
-      voted: Object.keys(game.votes).length,
-      total: Object.keys(game.players).length,
-    });
+      // Only drawer votes in pictionary
+      if (socket.id !== game.currentDrawer) return;
 
-    if (gameLogic.checkAllVoted(game)) {
-      const scorer = scoring.getScorerForMode(game.gameMode);
-      let scoreRound;
+      // Prevent duplicate votes
+      if (game.votes[guesserId]) return;
 
-      if (game.teamMode) {
-        // Team mode: award points to team instead of individual
-        scoreRound = (game, voteCounts) => {
-          for (const [answerId, count] of Object.entries(voteCounts)) {
-            teamsModule.scoreTeamRound(game.teams, answerId, count);
-            // Also update player's personal score for tracking
-            if (game.players[answerId]) {
-              game.players[answerId].score += count;
-              const token = game.players[answerId].token;
-              if (token && playersByToken[token]) {
-                playersByToken[token].score = game.players[answerId].score;
+      // Validate guesser exists
+      if (!game.guesses[guesserId]) return;
+
+      game.votes[guesserId] = approved ? 1 : 0;
+      socket.emit('vote-received');
+
+      io.emit('vote-progress', {
+        voted: Object.keys(game.votes).length,
+        total: Object.keys(game.guesses).length,
+      });
+
+      // When drawer has voted on all guesses
+      if (Object.keys(game.votes).length >= Object.keys(game.guesses).length) {
+        // Score pictionary: drawer gets points for correct guesses, guessers get points if approved
+        const scoreRound = (game, voteCounts) => {
+          for (const [guesserId, approved] of Object.entries(game.votes)) {
+            if (approved) {
+              // Guesser was correct
+              if (game.players[guesserId]) {
+                game.players[guesserId].score += 1;
+                const token = game.players[guesserId].token;
+                if (token && playersByToken[token]) {
+                  playersByToken[token].score = game.players[guesserId].score;
+                }
+              }
+              // Drawer gets point for correct guess
+              if (game.players[game.currentDrawer]) {
+                game.players[game.currentDrawer].score += 1;
+                const token = game.players[game.currentDrawer].token;
+                if (token && playersByToken[token]) {
+                  playersByToken[token].score = game.players[game.currentDrawer].score;
+                }
               }
             }
           }
         };
-      } else {
-        // Solo mode: use regular scoring
-        scoreRound = (game, voteCounts) => scorer(game, voteCounts, playersByToken);
-      }
 
-      gameLogic.tallyAndShowResults(game, io, scoreRound);
+        gameLogic.tallyAndShowResults(game, io, scoreRound);
+      }
+    } else {
+      // Regular voting (Hot Take / Speed Drawing)
+      // Prevent duplicate votes
+      if (game.votes[socket.id]) return;
+      // Can't vote for yourself
+      if (data === socket.id) {
+        socket.emit('error-msg', "Can't vote for your own answer!");
+        return;
+      }
+      // Validate answerId exists
+      if (!game.answers[data]) return;
+
+      game.votes[socket.id] = data;
+      socket.emit('vote-received');
+
+      io.emit('vote-progress', {
+        voted: Object.keys(game.votes).length,
+        total: Object.keys(game.players).length,
+      });
+
+      if (gameLogic.checkAllVoted(game)) {
+        const scorer = scoring.getScorerForMode(game.gameMode);
+        let scoreRound;
+
+        if (game.teamMode) {
+          // Team mode: award points to team instead of individual
+          scoreRound = (game, voteCounts) => {
+            for (const [answerId, count] of Object.entries(voteCounts)) {
+              teamsModule.scoreTeamRound(game.teams, answerId, count);
+              // Also update player's personal score for tracking
+              if (game.players[answerId]) {
+                game.players[answerId].score += count;
+                const token = game.players[answerId].token;
+                if (token && playersByToken[token]) {
+                  playersByToken[token].score = game.players[answerId].score;
+                }
+              }
+            }
+          };
+        } else {
+          // Solo mode: use regular scoring
+          scoreRound = (game, voteCounts) => scorer(game, voteCounts, playersByToken);
+        }
+
+        gameLogic.tallyAndShowResults(game, io, scoreRound);
+      }
     }
   });
 
@@ -480,10 +573,18 @@ io.on('connection', (socket) => {
     } else {
       io.emit('sound', 'round-start');
 
+      // Pictionary: assign next drawer
+      if (game.gameMode === 'pictionary') {
+        game.currentDrawer = pictionaryMode.assignDrawer(game, teamsModule);
+        console.log(`Drawer assigned: ${game.players[game.currentDrawer]?.name}`);
+      }
+
       // Get appropriate prompt picker for game mode
       let pickPromptFn;
       if (game.gameMode === 'speed-drawing') {
         pickPromptFn = () => speedDrawingMode.pickPrompt(game, customPrompts);
+      } else if (game.gameMode === 'pictionary') {
+        pickPromptFn = () => pictionaryMode.pickWord(game, customPrompts);
       } else {
         pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
       }

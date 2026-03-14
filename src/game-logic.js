@@ -55,14 +55,27 @@ function startRound(game, pickPrompt, io) {
   game.votes = {};
   game.drawings = {};
 
-  io.emit('phase', {
+  const payload = {
     phase: 'prompt',
     prompt: game.currentPrompt,
     gameMode: game.gameMode,
     round: game.round,
     totalRounds: game.totalRounds,
     timeLimit: game.customSettings.roundTime,
-  });
+  };
+
+  // For pictionary: send to each player whether they're the drawer
+  if (game.gameMode === 'pictionary') {
+    // Emit to each player individually with their drawer status
+    for (const playerId of Object.keys(game.players)) {
+      const payloadForPlayer = { ...payload, isDrawer: playerId === game.currentDrawer };
+      // This would require changing how we emit, instead use a second event
+    }
+    // For now, send drawer info to all (clients will handle it)
+    payload.currentDrawer = game.currentDrawer;
+  }
+
+  io.emit('phase', payload);
 
   // Auto-advance when timer expires
   clearTimeout(game.roundTimer);

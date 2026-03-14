@@ -55,6 +55,24 @@
     </div>
   </div>
 
+  <!-- PICTIONARY GUESS -->
+  <div id="screen-guess" class="phone-container hidden">
+    <p class="phone-prompt">What's being drawn?</p>
+    <div class="phone-timer" id="guess-timer"></div>
+    <p style="font-size:0.9rem; opacity:0.6; text-align:center;">Look at the TV and guess the word</p>
+    <div class="phone-answer">
+      <input type="text" id="guess-input" placeholder="Type your guess..." maxlength="100" autocomplete="off">
+      <button id="btn-submit-guess">Submit Guess</button>
+    </div>
+  </div>
+
+  <!-- PICTIONARY VOTING (Drawer only) -->
+  <div id="screen-pictionary-vote" class="phone-container hidden">
+    <h2>Are they correct?</h2>
+    <div id="pictionary-guesses" style="margin: 2rem 0;"></div>
+    <p style="text-align:center; opacity:0.6;" id="pictionary-vote-status">Review each guess</p>
+  </div>
+
   <!-- ANSWER PROMPT (Drawing) -->
   <div id="screen-draw" class="phone-container hidden">
     <p class="phone-prompt" id="draw-prompt"></p>
@@ -236,8 +254,10 @@
       waiting: document.getElementById('screen-waiting'),
       answer: document.getElementById('screen-answer'),
       draw: document.getElementById('screen-draw'),
+      guess: document.getElementById('screen-guess'),
       answered: document.getElementById('screen-answered'),
       vote: document.getElementById('screen-vote'),
+      pictionaryVote: document.getElementById('screen-pictionary-vote'),
       voted: document.getElementById('screen-voted'),
       roundEnd: document.getElementById('screen-round-end'),
       gameover: document.getElementById('screen-gameover'),
@@ -358,6 +378,22 @@
       document.getElementById('btn-submit-drawing').disabled = true;
       const imageData = drawingCanvas.toDataURL('image/png');
       socket.emit('answer', imageData);
+      showScreen('answered');
+    }
+
+    // Pictionary guess submission
+    document.getElementById('btn-submit-guess').addEventListener('click', submitGuess);
+    document.getElementById('guess-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitGuess();
+    });
+
+    function submitGuess() {
+      if (hasSubmitted) return;
+      const guess = document.getElementById('guess-input').value.trim();
+      if (!guess) return;
+      hasSubmitted = true;
+      document.getElementById('btn-submit-guess').disabled = true;
+      socket.emit('answer', guess);
       showScreen('answered');
     }
 
@@ -522,7 +558,22 @@
           hasSubmitted = false;
 
           // Choose screen based on game mode
-          if (data.gameMode === 'speed-drawing') {
+          if (data.gameMode === 'pictionary') {
+            const isDrawer = data.currentDrawer === myId;
+            if (isDrawer) {
+              // You're the drawer
+              showScreen('draw');
+              initDrawingCanvas();
+              document.getElementById('draw-prompt').textContent = `Draw: ${data.prompt}`;
+              document.getElementById('btn-submit-drawing').disabled = false;
+            } else {
+              // You're guessing
+              showScreen('guess');
+              document.getElementById('guess-input').value = '';
+              document.getElementById('btn-submit-guess').disabled = false;
+              setTimeout(() => document.getElementById('guess-input').focus(), 100);
+            }
+          } else if (data.gameMode === 'speed-drawing') {
             showScreen('draw');
             initDrawingCanvas();
             document.getElementById('draw-prompt').textContent = data.prompt;

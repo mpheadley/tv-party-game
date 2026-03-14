@@ -15,6 +15,13 @@
     <div id="qr-code"></div>
     <p class="join-url" id="join-url"></p>
     <div class="player-list" id="player-list"></div>
+    <div id="game-mode-selector" style="margin: 1rem 0;">
+      <p style="opacity:0.7; margin:0 0 0.5rem;">Game Mode:</p>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="mode-button selected" data-mode="hot-take">🔥 Hot Take</button>
+        <button class="mode-button" data-mode="speed-drawing">🎨 Speed Drawing</button>
+      </div>
+    </div>
     <div class="round-picker">
       <button class="round-option" data-rounds="5">Quick<br><span>~8 min</span></button>
       <button class="round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>
@@ -318,6 +325,25 @@
 
     // Tell server we're the TV — send our public URL so server can generate QR
     socket.emit('tv-connect', window.location.origin);
+
+    // Game mode
+    let currentGameMode = 'hot-take';
+
+    document.querySelectorAll('.mode-button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        currentGameMode = btn.dataset.mode;
+        socket.emit('set-game-mode', currentGameMode);
+      });
+    });
+
+    socket.on('game-mode-updated', (mode) => {
+      currentGameMode = mode;
+      document.querySelectorAll('.mode-button').forEach(b => {
+        b.classList.toggle('selected', b.dataset.mode === mode);
+      });
+    });
 
     // Initial state
     socket.on('game-state', (data) => {

@@ -45,7 +45,7 @@
     <p class="status" id="non-host-status">Waiting for the game to start...</p>
   </div>
 
-  <!-- ANSWER PROMPT -->
+  <!-- ANSWER PROMPT (Text) -->
   <div id="screen-answer" class="phone-container hidden">
     <p class="phone-prompt" id="phone-prompt"></p>
     <div class="phone-timer" id="phone-timer"></div>
@@ -53,6 +53,30 @@
       <textarea id="answer-input" placeholder="Type your answer..." maxlength="200"></textarea>
       <button id="btn-submit">Submit Answer</button>
     </div>
+  </div>
+
+  <!-- ANSWER PROMPT (Drawing) -->
+  <div id="screen-draw" class="phone-container hidden">
+    <p class="phone-prompt" id="draw-prompt"></p>
+    <div class="phone-timer" id="draw-timer"></div>
+    <div class="drawing-tools">
+      <div class="drawing-tool-group">
+        <button id="btn-pencil" class="tool-button active">✏️ Pencil</button>
+        <button id="btn-eraser" class="tool-button">🧹 Eraser</button>
+      </div>
+      <div class="drawing-tool-group">
+        <label for="color-picker">Color:</label>
+        <input type="color" id="color-picker" value="#000000">
+      </div>
+      <div class="drawing-tool-group">
+        <label for="size-slider">Size:</label>
+        <input type="range" id="size-slider" class="size-slider" min="1" max="50" value="3">
+        <span id="size-display">3</span>
+      </div>
+      <button id="btn-clear" class="tool-button danger">🗑️ Clear</button>
+    </div>
+    <canvas id="drawing-canvas"></canvas>
+    <button id="btn-submit-drawing" class="btn-submit" style="width:100%;">Submit Drawing</button>
   </div>
 
   <!-- ANSWER SUBMITTED -->
@@ -103,6 +127,17 @@
     let hasSubmitted = false;
     let isHost = false;
     let myToken = sessionStorage.getItem('hottake-token');
+    let currentGameMode = 'hot-take';
+
+    // Drawing canvas setup
+    let drawingCanvas = null;
+    let drawingCtx = null;
+    let isDrawing = false;
+    let drawingTool = 'pencil'; // 'pencil' or 'eraser'
+    let drawingColor = '#000000';
+    let drawingSize = 3;
+    let lastX = 0;
+    let lastY = 0;
 
     // ── Sound Effects (Web Audio API) ──
     let audioCtx = null;
@@ -197,8 +232,10 @@
     // Screens
     const screens = {
       join: document.getElementById('screen-join'),
+      teamSelect: document.getElementById('screen-team-select'),
       waiting: document.getElementById('screen-waiting'),
       answer: document.getElementById('screen-answer'),
+      draw: document.getElementById('screen-draw'),
       answered: document.getElementById('screen-answered'),
       vote: document.getElementById('screen-vote'),
       voted: document.getElementById('screen-voted'),
@@ -210,6 +247,124 @@
       Object.values(screens).forEach(s => s.classList.add('hidden'));
       screens[name].classList.remove('hidden');
     }
+
+    // Initialize drawing canvas
+    function initDrawingCanvas() {
+      drawingCanvas = document.getElementById('drawing-canvas');
+      if (!drawingCanvas) return;
+
+      // Set canvas size to container
+      const container = drawingCanvas.parentElement;
+      drawingCanvas.width = Math.min(400, container.clientWidth - 20);
+      drawingCanvas.height = 400;
+
+      drawingCtx = drawingCanvas.getContext('2d');
+      drawingCtx.fillStyle = 'white';
+      drawingCtx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+      drawingCtx.lineCap = 'round';
+      drawingCtx.lineJoin = 'round';
+
+      // Drawing events
+      drawingCanvas.addEventListener('mousedown', startDrawing);
+      drawingCanvas.addEventListener('mousemove', draw);
+      drawingCanvas.addEventListener('mouseup', stopDrawing);
+      drawingCanvas.addEventListener('mouseout', stopDrawing);
+
+      // Touch events
+      drawingCanvas.addEventListener('touchstart', startDrawing);
+      drawingCanvas.addEventListener('touchmove', draw);
+      drawingCanvas.addEventListener('touchend', stopDrawing);
+
+      // Tools
+      document.getElementById('btn-pencil').addEventListener('click', () => {
+        drawingTool = 'pencil';
+        document.getElementById('btn-pencil').classList.add('active');
+        document.getElementById('btn-eraser').classList.remove('active');
+      });
+
+      document.getElementById('btn-eraser').addEventListener('click', () => {
+        drawingTool = 'eraser';
+        document.getElementById('btn-eraser').classList.add('active');
+        document.getElementById('btn-pencil').classList.remove('active');
+      });
+
+      document.getElementById('color-picker').addEventListener('change', (e) => {
+        drawingColor = e.target.value;
+      });
+
+      document.getElementById('size-slider').addEventListener('input', (e) => {
+        drawingSize = parseInt(e.target.value);
+        document.getElementById('size-display').textContent = drawingSize;
+      });
+
+      document.getElementById('btn-clear').addEventListener('click', () => {
+        drawingCtx.fillStyle = 'white';
+        drawingCtx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+      });
+
+      document.getElementById('btn-submit-drawing').addEventListener('click', submitDrawing);
+    }
+
+    function getCanvasCoords(e) {
+      const rect = drawingCanvas.getBoundingClientRect();
+      if (e.touches) {
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top,
+        };
+      }
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+    }
+
+    function startDrawing(e) {
+      e.preventDefault();
+      isDrawing = true;
+      const coords = getCanvasCoords(e);
+      lastX = coords.x;
+      lastY = coords.y;
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+
+      const coords = getCanvasCoords(e);
+
+      if (drawingTool === 'eraser') {
+        drawingCtx.clearRect(coords.x - drawingSize/2, coords.y - drawingSize/2, drawingSize, drawingSize);
+      } else {
+        drawingCtx.strokeStyle = drawingColor;
+        drawingCtx.lineWidth = drawingSize;
+        drawingCtx.beginPath();
+        drawingCtx.moveTo(lastX, lastY);
+        drawingCtx.lineTo(coords.x, coords.y);
+        drawingCtx.stroke();
+      }
+
+      lastX = coords.x;
+      lastY = coords.y;
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+    }
+
+    function submitDrawing() {
+      if (hasSubmitted) return;
+      hasSubmitted = true;
+      document.getElementById('btn-submit-drawing').disabled = true;
+      const imageData = drawingCanvas.toDataURL('image/png');
+      socket.emit('answer', imageData);
+      showScreen('answered');
+    }
+
+    // Listen for game mode changes
+    socket.on('game-mode-updated', (mode) => {
+      currentGameMode = mode;
+    });
 
     // Store socket ID and attempt reconnection
     socket.on('connect', () => {
@@ -365,12 +520,22 @@
 
         case 'prompt':
           hasSubmitted = false;
-          showScreen('answer');
+
+          // Choose screen based on game mode
+          if (data.gameMode === 'speed-drawing') {
+            showScreen('draw');
+            initDrawingCanvas();
+            document.getElementById('draw-prompt').textContent = data.prompt;
+            document.getElementById('btn-submit-drawing').disabled = false;
+          } else {
+            showScreen('answer');
+            document.getElementById('phone-prompt').textContent = data.prompt;
+            document.getElementById('answer-input').value = '';
+            document.getElementById('btn-submit').disabled = false;
+            setTimeout(() => document.getElementById('answer-input').focus(), 100);
+          }
+
           vibrate(200);
-          document.getElementById('phone-prompt').textContent = data.prompt;
-          document.getElementById('answer-input').value = '';
-          document.getElementById('btn-submit').disabled = false;
-          setTimeout(() => document.getElementById('answer-input').focus(), 100);
 
           // Phone timer
           let timeLeft = data.timeLimit;

@@ -12,6 +12,7 @@ const hotTakeMode = require('./src/modes/hot-take');
 const promptsModule = require('./src/prompts');
 const settingsModule = require('./src/settings');
 const teamsModule = require('./src/teams');
+const speedDrawingMode = require('./src/modes/speed-drawing');
 
 const app = express();
 const server = http.createServer(app);
@@ -326,6 +327,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Set game mode (TV only, host only, lobby only)
+  socket.on('set-game-mode', (mode) => {
+    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
+    if (game.phase !== 'lobby') return;
+
+    const validModes = ['hot-take', 'speed-drawing', 'pictionary'];
+    if (validModes.includes(mode)) {
+      game.gameMode = mode;
+      io.emit('game-mode-updated', mode);
+      console.log(`Game mode set to: ${mode}`);
+    }
+  });
+
   // Toggle team mode (TV only, host only, lobby only)
   socket.on('set-team-mode', (data) => {
     if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
@@ -360,21 +374,41 @@ io.on('connection', (socket) => {
       game.totalRounds = rounds;
     }
     io.emit('sound', 'round-start');
-    // Use prompts module with custom prompts
-    const pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
+
+    // Get appropriate prompt picker for game mode
+    let pickPromptFn;
+    if (game.gameMode === 'speed-drawing') {
+      pickPromptFn = () => speedDrawingMode.pickPrompt(game, customPrompts);
+    } else {
+      // Hot Take (default)
+      pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
+    }
+
     gameLogic.startRound(game, pickPromptFn, io);
   });
 
-  // Player submits answer
-  socket.on('answer', (text) => {
+  // Player submits answer (text or drawing)
+  socket.on('answer', (data) => {
     if (game.phase !== 'prompt') return;
     // Prevent duplicate submissions
     if (game.answers[socket.id]) return;
 
-    const cleanText = hotTakeMode.validateAnswer(text);
-    if (!cleanText) return;
+    let answer = null;
 
-    game.answers[socket.id] = cleanText;
+    if (game.gameMode === 'speed-drawing') {
+      // Drawing submission
+      const imageData = speedDrawingMode.validateDrawing(data);
+      if (!imageData) return;
+      answer = imageData;
+      game.drawings[socket.id] = imageData;
+    } else {
+      // Text submission (Hot Take)
+      const text = hotTakeMode.validateAnswer(data);
+      if (!text) return;
+      answer = text;
+    }
+
+    game.answers[socket.id] = answer;
     socket.emit('answer-received');
     io.emit('sound', 'submit');
 
@@ -445,7 +479,15 @@ io.on('connection', (socket) => {
       gameLogic.endGame(game, io);
     } else {
       io.emit('sound', 'round-start');
-      const pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
+
+      // Get appropriate prompt picker for game mode
+      let pickPromptFn;
+      if (game.gameMode === 'speed-drawing') {
+        pickPromptFn = () => speedDrawingMode.pickPrompt(game, customPrompts);
+      } else {
+        pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
+      }
+
       gameLogic.startRound(game, pickPromptFn, io);
     }
   });

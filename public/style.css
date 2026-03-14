@@ -801,5 +801,99 @@ body {
   transform: scale(0.98);
 }
 
+/* Mode buttons */
+.mode-button {
+  background: #444;
+  color: white;
+  border: 2px solid #666;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.mode-button:hover {
+  border-color: #667eea;
+}
+
+.mode-button.selected {
+  background: #667eea;
+  border-color: #667eea;
+  box-shadow: 0 0 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Drawing canvas */
+#drawing-canvas {
+  border: 2px solid #ddd;
+  border-radius: 0.5rem;
+  background: white;
+  cursor: crosshair;
+  display: block;
+  margin: 1rem 0;
+  touch-action: none;
+}
+
+.drawing-tools {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.drawing-tool-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.drawing-tool-group label {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
+.tool-button {
+  padding: 0.5rem 1rem;
+  background: #f0f0f0;
+  border: 2px solid #ddd;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.tool-button:hover {
+  border-color: #667eea;
+}
+
+.tool-button.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.tool-button.danger {
+  background: #ff6b6b;
+  color: white;
+  border-color: #ff6b6b;
+}
+
+.tool-button.danger:hover {
+  border-color: #ff5252;
+}
+
+#color-picker {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.size-slider {
+  width: 120px;
+}
+
 /* Hidden utility */
 .hidden { display: none !important; }

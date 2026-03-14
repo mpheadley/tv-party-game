@@ -58,6 +58,7 @@ function startRound(game, pickPrompt, io) {
   io.emit('phase', {
     phase: 'prompt',
     prompt: game.currentPrompt,
+    gameMode: game.gameMode,
     round: game.round,
     totalRounds: game.totalRounds,
     timeLimit: game.customSettings.roundTime,

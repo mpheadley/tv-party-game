@@ -60,7 +60,7 @@ class SoundManager {
         top: 1rem;
         right: 1rem;
         background: rgba(102, 126, 234, 0.2);
-        border: 2px solid #667eea;
+        border: 2px solid #506be6;
         border-radius: 50%;
         width: 50px;
         height: 50px;
@@ -89,7 +89,7 @@ class SoundManager {
     this.saveMutePreference();
     if (this.muteButton) {
       this.muteButton.textContent = this.enabled ? '🔊' : '🔇';
-      this.muteButton.style.borderColor = this.enabled ? '#667eea' : '#c83232';
+      this.muteButton.style.borderColor = this.enabled ? '#506be6' : '#c83232';
       this.muteButton.style.background = this.enabled ? 'rgba(102, 126, 234, 0.2)' : 'rgba(200, 50, 50, 0.2)';
     }
   }

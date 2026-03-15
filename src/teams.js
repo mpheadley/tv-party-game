@@ -4,7 +4,7 @@
  */
 
 const TEAM_COLORS = [
-  '#667eea', // indigo
+  '#506be6', // indigo
   '#f093fb', // pink
   '#4facfe', // blue
   '#43e97b', // green

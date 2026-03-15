@@ -29,7 +29,7 @@
       <h2 style="margin:1rem 0;">Reconnecting...</h2>
       <p id="reconnect-message" style="opacity:0.7; margin:1rem 0;">Your game session is being restored.</p>
       <div class="spinner" style="margin:2rem 0;">
-        <div style="border:3px solid #667eea; border-top:3px solid transparent; border-radius:50%; width:40px; height:40px; animation: spin 1s linear infinite; margin:0 auto;"></div>
+        <div style="border:3px solid #506be6; border-top:3px solid transparent; border-radius:50%; width:40px; height:40px; animation: spin 1s linear infinite; margin:0 auto;"></div>
       </div>
       <p style="font-size:0.85rem; opacity:0.5; margin-top:2rem;">Grace period: <span id="grace-timer">120</span>s remaining</p>
       <button id="btn-rejoin" class="btn-start hidden">Rejoin Game</button>
@@ -129,7 +129,7 @@
   <!-- ANSWER SUBMITTED -->
   <div id="screen-answered" class="phone-container hidden">
     <p class="waiting-msg">Answer submitted!</p>
-    <p class="status" id="my-answer-note" style="color:#667eea; font-style:italic; margin-top:1rem;"></p>
+    <p class="status" id="my-answer-note" style="color:#506be6; font-style:italic; margin-top:1rem;"></p>
     <p class="status">Waiting for everyone else...</p>
   </div>
 
@@ -153,7 +153,7 @@
     <p class="snarky-commentary" id="phone-commentary"></p>
     <div class="phone-reveal-cards" id="phone-reveal-cards"></div>
     <div class="phone-results" id="phone-results"></div>
-    <p class="status" id="phone-score" style="margin-top:1rem; font-size:1.4rem; color:#667eea; font-weight:bold;"></p>
+    <p class="status" id="phone-score" style="margin-top:1rem; font-size:1.4rem; color:#506be6; font-weight:bold;"></p>
     <div class="phone-scoreboard" id="phone-scoreboard"></div>
     <button class="btn-host host-only hidden" id="btn-host-next" style="margin-top:1rem;">Next Round</button>
   </div>
@@ -613,7 +613,7 @@
       const elem = document.getElementById('join-error') || document.getElementById('status');
       if (elem) {
         elem.textContent = msg;
-        elem.style.color = '#667eea';
+        elem.style.color = '#506be6';
       }
     }
 
@@ -1086,7 +1086,7 @@
       canvas.height = window.innerHeight;
       canvas.style.display = 'block';
       const ctx = canvas.getContext('2d');
-      const colors = ['#667eea', '#764ba2', '#ffd700', '#ff6b6b', '#48dbfb', '#ff9ff3', '#00d2d3'];
+      const colors = ['#506be6', '#764ba2', '#ffd700', '#ff6b6b', '#48dbfb', '#ff9ff3', '#00d2d3'];
       const pieces = [];
 
       for (let i = 0; i < 100; i++) {

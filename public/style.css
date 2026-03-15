@@ -1062,3 +1062,321 @@ button:active {
 
 /* Hidden utility */
 .hidden { display: none !important; }
+
+/* ── Mobile Optimization ── */
+
+/* Ensure safe areas on notched devices */
+@supports (padding: max(0px)) {
+  .phone-container,
+  .tv-container {
+    padding-top: max(1.5rem, env(safe-area-inset-top));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
+/* Touch-friendly button sizes (min 44px) */
+button,
+.vote-btn,
+.emoji-option,
+.team-button,
+.phone-round-option,
+.mode-button,
+.round-option {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Increase touch target for interactive elements */
+.vote-btn,
+.emoji-option,
+.team-button {
+  padding: max(0.75rem, 1vh) max(1rem, 2vw) !important;
+}
+
+/* Mobile-optimized text sizes */
+@media (max-width: 768px) {
+  body {
+    font-size: 16px; /* Prevents auto-zoom on iOS */
+  }
+
+  .phone-container h1 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .phone-container h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .phone-prompt {
+    font-size: 1.1rem;
+    line-height: 1.5;
+  }
+
+  .phone-timer {
+    font-size: 1.5rem;
+  }
+
+  /* Form inputs optimized for mobile */
+  .join-form input,
+  .join-form textarea,
+  .phone-answer input,
+  .phone-answer textarea {
+    min-height: 44px;
+    font-size: 16px; /* Prevents auto-zoom */
+    padding: 0.75rem;
+  }
+
+  /* Vote options full width */
+  .vote-options {
+    width: 100%;
+    max-width: 100%;
+    padding: 0 1rem;
+  }
+
+  .vote-btn {
+    width: 100%;
+    padding: 1rem 0.75rem;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Phone scoreboard adjustments */
+  .phone-scoreboard {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .phone-score-row {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  /* Drawing canvas responsive */
+  #drawing-canvas {
+    max-width: 100vw;
+    max-height: 60vh;
+  }
+
+  /* Emoji picker responsive */
+  .emoji-picker {
+    gap: 0.4rem;
+  }
+
+  .emoji-option {
+    width: 40px;
+    height: 40px;
+    font-size: 1.4rem;
+  }
+
+  /* Team options grid */
+  .team-options {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .team-button {
+    padding: 1rem;
+    font-size: 0.95rem;
+  }
+
+  /* Host controls responsive */
+  .phone-round-picker {
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+
+  .phone-round-option {
+    flex: 1;
+    padding: 0.5rem 0.3rem;
+    font-size: 0.85rem;
+  }
+
+  /* Reduce padding on small screens */
+  .phone-container {
+    padding: 1rem;
+  }
+
+  /* Answer card adjustments */
+  .answer-card {
+    min-width: 280px;
+    padding: 1rem 1.5rem;
+    font-size: 1.3rem;
+  }
+
+  /* Mode buttons responsive */
+  .mode-button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Extra small devices (< 480px) */
+@media (max-width: 480px) {
+  .phone-container h1 {
+    font-size: 1.5rem;
+  }
+
+  .phone-prompt {
+    font-size: 1rem;
+  }
+
+  .join-form {
+    width: 100%;
+    max-width: 100%;
+    gap: 0.75rem;
+  }
+
+  .phone-answer {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .phone-answer textarea {
+    height: 80px;
+    font-size: 16px;
+  }
+
+  .phone-avatar {
+    font-size: 3rem;
+  }
+
+  .answer-card {
+    min-width: 100%;
+    max-width: 100vw;
+  }
+
+  /* Stack buttons vertically on extra small screens */
+  .phone-round-picker {
+    flex-direction: column;
+  }
+
+  .phone-round-option {
+    width: 100%;
+  }
+
+  /* Modal adjustments for small screens */
+  .modal-content {
+    width: 95%;
+    padding: 1.5rem 1rem;
+  }
+
+  /* Reduce margins/padding */
+  .tv-container,
+  .phone-container {
+    padding: 0.75rem;
+  }
+
+  .player-list {
+    gap: 0.75rem;
+  }
+
+  .player-card {
+    padding: 0.75rem 1rem;
+    font-size: 1.2rem;
+  }
+}
+
+/* Large screens (> 1024px) - optimize for tablets/TV displays */
+@media (min-width: 1024px) {
+  button {
+    min-height: 48px;
+  }
+
+  .vote-btn {
+    padding: 1rem 1.5rem;
+  }
+
+  .answer-card {
+    min-width: 350px;
+  }
+}
+
+/* Prevent text selection on interactive elements (improve touch feel) */
+button,
+.vote-btn,
+.emoji-option,
+.team-button,
+.mode-button,
+.round-option {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Optimize for landscape orientation on phones */
+@media (max-height: 500px) and (orientation: landscape) {
+  .phone-container {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    min-height: auto;
+  }
+
+  .phone-container h1 {
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .phone-avatar {
+    font-size: 2.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .phone-timer {
+    margin-bottom: 0.5rem;
+  }
+
+  .vote-btn {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.95rem;
+  }
+
+  #drawing-canvas {
+    max-height: 40vh;
+  }
+}
+
+/* High DPI devices - sharper text */
+@media (min-device-pixel-ratio: 2) {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Accessibility: Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Remove hover states on touch devices */
+  button:hover {
+    transform: none;
+  }
+
+  .vote-btn:hover {
+    box-shadow: none;
+  }
+
+  .emoji-option:hover {
+    transform: none;
+  }
+
+  /* Increase visual feedback on touch */
+  button:active,
+  .vote-btn:active,
+  .emoji-option:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}

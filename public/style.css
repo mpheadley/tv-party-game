@@ -1114,12 +1114,13 @@ button:active {
   background: #1a1a2e;
   border: 2px solid #506be6;
   color: #506be6;
-  padding: 0.8rem 1.5rem;
+  padding: 0.8rem 2rem;
   font-size: 1.1rem;
   border-radius: 0.75rem;
   cursor: pointer;
   font-weight: bold;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: transform 0.2s, background 0.2s;
 }
 
@@ -1151,6 +1152,7 @@ button:active {
 .landing-join-row {
   display: flex;
   gap: 0.75rem;
+  align-items: stretch;
 }
 
 .landing-code-input {

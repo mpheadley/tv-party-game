@@ -52,6 +52,7 @@
     <button class="btn-secondary" id="btn-manage-prompts">⚙️ Manage Prompts</button>
     <button class="btn-secondary" id="btn-manage-settings">⏱️ Game Settings</button>
     <button class="btn-secondary" id="btn-manage-teams">👥 Teams</button>
+    <button class="btn-secondary" id="btn-add-bots">🤖 Add Bots</button>
     <button class="btn-start" id="btn-start" disabled>🚀 Start Game</button>
     <p class="status" id="lobby-status">Waiting for players...</p>
   </div>
@@ -927,6 +928,26 @@
 
     socket.on('prompt-added', (prompt) => {
       document.getElementById('prompt-input').value = '';
+    });
+
+    // Add Bots
+    document.getElementById('btn-add-bots').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-add-bots');
+      const count = prompt('How many bots? (1-12)', '3');
+      if (!count) return;
+      btn.disabled = true;
+      btn.textContent = '🤖 Adding...';
+      try {
+        const resp = await fetch(`/api/add-bots?room=${roomCode}&count=${parseInt(count) || 3}`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        btn.textContent = `🤖 ${data.added} Bots Added`;
+        setTimeout(() => { btn.textContent = '🤖 Add Bots'; btn.disabled = false; }, 3000);
+      } catch (e) {
+        btn.textContent = '🤖 Add Bots';
+        btn.disabled = false;
+        alert('Failed to add bots: ' + e.message);
+      }
     });
 
     // Teams Modal

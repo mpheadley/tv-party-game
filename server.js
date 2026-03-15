@@ -16,6 +16,7 @@ const speedDrawingMode = require('./src/modes/speed-drawing');
 const pictionaryMode = require('./src/modes/pictionary');
 const { ReconnectionManager, handlePlayerDisconnect, handlePlayerReconnect } = require('./src/reconnection-handler');
 const nightFallsMode = require('./src/modes/night-falls');
+const { createBots } = require('./src/bots');
 
 const app = express();
 const server = http.createServer(app);
@@ -83,6 +84,11 @@ function deleteRoom(code) {
   clearTimeout(room.roundTimer);
   clearTimeout(room.cleanupTimer);
   if (room.reconnectionManager) room.reconnectionManager.destroy();
+  // Clean up bots
+  if (activeBots[code]) {
+    activeBots[code].cleanup();
+    delete activeBots[code];
+  }
   // Clean up token mappings
   for (const token of Object.keys(room.playersByToken)) {
     delete tokenToRoom[token];
@@ -123,6 +129,44 @@ app.get('/api/room/:code', (req, res) => {
     phase: room.phase,
     playerCount: Object.keys(room.players).length,
   });
+});
+
+// ── Bot Management ──
+const activeBots = {}; // { roomCode: { bots, cleanup } }
+
+app.post('/api/add-bots', (req, res) => {
+  const roomCode = (req.query.room || '').toUpperCase();
+  const count = Math.max(1, Math.min(12, parseInt(req.query.count) || 3));
+
+  const room = getRoom(roomCode);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  if (room.phase !== 'lobby') return res.status(400).json({ error: 'Game already in progress' });
+
+  // Clean up any existing bots in this room
+  if (activeBots[roomCode]) {
+    activeBots[roomCode].cleanup();
+    delete activeBots[roomCode];
+  }
+
+  const port = server.address()?.port || PORT;
+  const serverUrl = `http://localhost:${port}`;
+  const botGroup = createBots(serverUrl, roomCode, count);
+  activeBots[roomCode] = botGroup;
+
+  console.log(`[BOTS] Added ${count} bots to room ${roomCode}`);
+  res.json({ added: count, room: roomCode, names: botGroup.bots.map(b => b.name) });
+});
+
+app.post('/api/remove-bots', (req, res) => {
+  const roomCode = (req.query.room || '').toUpperCase();
+  if (activeBots[roomCode]) {
+    activeBots[roomCode].cleanup();
+    delete activeBots[roomCode];
+    console.log(`[BOTS] Removed bots from room ${roomCode}`);
+    res.json({ removed: true, room: roomCode });
+  } else {
+    res.json({ removed: false, message: 'No bots in this room' });
+  }
 });
 
 // ── Room Helper Functions ──

@@ -5,8 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Hot Take 🔥 — Join</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 </head>
 <body>
+
+  <!-- Persistent room code floating badge (visible during gameplay) -->
+  <button id="floating-room-badge" class="floating-room-badge" style="display:none;" aria-label="Show room QR code"></button>
+
+  <!-- QR Code Modal -->
+  <div id="qr-modal" class="modal hidden" role="dialog" aria-label="Room invite">
+    <div class="modal-content qr-modal-content">
+      <h2>Invite Players</h2>
+      <div id="qr-modal-code" class="qr-modal-code"></div>
+      <div id="qr-modal-image" class="qr-modal-image"></div>
+      <p id="qr-modal-url" class="qr-modal-url"></p>
+      <div class="qr-modal-actions">
+        <button id="btn-share-invite" class="landing-btn-secondary" style="display:none;">Share Invite Link</button>
+        <button id="btn-close-qr" class="btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
 
   <!-- JOIN -->
   <div id="screen-join" class="phone-container">
@@ -64,6 +82,12 @@
       <p class="status" id="host-lobby-status">Waiting for players...</p>
     </div>
     <p class="status" id="non-host-status">Waiting for the game to start...</p>
+    <!-- Host: QR code + share invite in lobby -->
+    <div id="host-invite-section" class="host-invite-section hidden">
+      <div id="lobby-qr" class="lobby-qr"></div>
+      <p id="lobby-join-url" class="lobby-join-url"></p>
+      <button id="btn-lobby-share" class="btn-lobby-share" style="display:none;">Share Invite Link</button>
+    </div>
     <!-- Phone-only: player list in lobby -->
     <div class="phone-player-list" id="phone-player-list"></div>
     <!-- Host: link to open TV display -->
@@ -190,6 +214,61 @@
       badge.style.display = 'block';
     }
 
+    // ── QR Code & Invite System ──
+    const joinUrl = roomCode ? `${window.location.origin}/phone.html?room=${roomCode}` : '';
+
+    function generateQR(container, size) {
+      if (!roomCode || typeof qrcode === 'undefined') return;
+      container.innerHTML = '';
+      const qr = qrcode(0, 'M');
+      qr.addData(joinUrl);
+      qr.make();
+      container.innerHTML = qr.createSvgTag({ cellSize: size, margin: 2 });
+    }
+
+    // Floating badge — shows during gameplay, tap opens QR modal
+    const floatingBadge = document.getElementById('floating-room-badge');
+    if (roomCode) {
+      floatingBadge.textContent = roomCode;
+    }
+
+    floatingBadge.addEventListener('click', openQRModal);
+    document.getElementById('btn-close-qr').addEventListener('click', closeQRModal);
+    document.getElementById('qr-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeQRModal();
+    });
+
+    function openQRModal() {
+      const modal = document.getElementById('qr-modal');
+      document.getElementById('qr-modal-code').textContent = roomCode;
+      generateQR(document.getElementById('qr-modal-image'), 5);
+      document.getElementById('qr-modal-url').textContent = joinUrl;
+      modal.classList.remove('hidden');
+    }
+
+    function closeQRModal() {
+      document.getElementById('qr-modal').classList.add('hidden');
+    }
+
+    // Web Share API — for texting/airdropping the invite link
+    function shareInvite() {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Join my Hot Take game!',
+          text: `Join room ${roomCode} — the party game where the worst answer wins.`,
+          url: joinUrl,
+        }).catch(() => {}); // user cancelled
+      }
+    }
+
+    // Show share buttons if Web Share API is available
+    if (navigator.share && roomCode) {
+      document.getElementById('btn-share-invite').style.display = 'block';
+      document.getElementById('btn-share-invite').addEventListener('click', shareInvite);
+      document.getElementById('btn-lobby-share').style.display = 'block';
+      document.getElementById('btn-lobby-share').addEventListener('click', shareInvite);
+    }
+
     // Drawing canvas setup
     let drawingCanvas = null;
     let drawingCtx = null;
@@ -311,6 +390,12 @@
     function showScreen(name) {
       Object.values(screens).forEach(s => s.classList.add('hidden'));
       screens[name].classList.remove('hidden');
+
+      // Show floating room badge during gameplay (not on join/lobby)
+      const hideOnScreens = ['join', 'teamSelect', 'waiting'];
+      if (roomCode) {
+        floatingBadge.style.display = hideOnScreens.includes(name) ? 'none' : 'block';
+      }
 
       // Update mode indicator if screen has one
       const modeIndicator = document.getElementById('screen-mode-indicator');
@@ -715,6 +800,11 @@
         const tvLink = document.getElementById('tv-link');
         tvLink.href = `/tv.html?room=${roomCode}`;
         tvLink.style.display = 'inline-block';
+        // Show QR code + invite section in lobby
+        const inviteSection = document.getElementById('host-invite-section');
+        inviteSection.classList.remove('hidden');
+        generateQR(document.getElementById('lobby-qr'), 4);
+        document.getElementById('lobby-join-url').textContent = joinUrl;
       }
     }
 

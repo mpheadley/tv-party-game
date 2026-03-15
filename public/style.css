@@ -1386,6 +1386,119 @@ button:active {
   display: none;
 }
 
+/* ── Floating Room Badge ── */
+.floating-room-badge {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: linear-gradient(135deg, #506be6, #764ba2);
+  color: white;
+  border: none;
+  padding: 0.3rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: bold;
+  font-family: monospace;
+  letter-spacing: 0.1rem;
+  cursor: pointer;
+  z-index: 50;
+  opacity: 0.85;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.floating-room-badge:hover,
+.floating-room-badge:active {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* ── QR Modal ── */
+.qr-modal-content {
+  text-align: center;
+  max-width: 340px;
+}
+
+.qr-modal-code {
+  font-size: 2.5rem;
+  font-weight: bold;
+  font-family: monospace;
+  letter-spacing: 0.5rem;
+  color: #506be6;
+  margin: 0.75rem 0;
+}
+
+.qr-modal-image {
+  margin: 1rem auto;
+  display: flex;
+  justify-content: center;
+}
+
+.qr-modal-image svg {
+  border-radius: 0.5rem;
+}
+
+.qr-modal-url {
+  font-size: 0.75rem;
+  color: #888;
+  word-break: break-all;
+  margin: 0.5rem 0 1rem;
+}
+
+.qr-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* ── Host Invite Section (lobby) ── */
+.host-invite-section {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 1rem;
+  text-align: center;
+  width: 100%;
+  max-width: 320px;
+}
+
+.lobby-qr {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0;
+  background: white;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lobby-join-url {
+  font-size: 0.75rem;
+  color: #888;
+  word-break: break-all;
+  margin: 0.5rem 0;
+}
+
+.btn-lobby-share {
+  background: linear-gradient(135deg, #506be6, #764ba2);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.95rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 0.5rem;
+  transition: transform 0.2s;
+}
+
+.btn-lobby-share:hover {
+  transform: scale(1.02);
+}
+
 /* ── TV Link ── */
 .tv-link {
   display: inline-block;

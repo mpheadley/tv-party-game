@@ -109,6 +109,7 @@ function checkAllAnswered(game) {
 function startVoting(game, io) {
   clearTimeout(game.roundTimer);
   game.phase = 'vote';
+  io.emit('sound', 'vote-open');
 
   // Remove answers from players who disconnected
   for (const id of Object.keys(game.answers)) {
@@ -198,6 +199,7 @@ function checkAllVoted(game) {
 function tallyAndShowResults(game, io, scoreRound) {
   clearTimeout(game.roundTimer);
   game.phase = 'results';
+  io.emit('sound', 'vote-close');
 
   // Count votes per answer
   const voteCounts = {};
@@ -253,6 +255,7 @@ function tallyAndShowResults(game, io, scoreRound) {
 function endGame(game, io) {
   clearTimeout(game.roundTimer);
   game.phase = 'gameover';
+  io.emit('sound', 'gameover');
   const scoreboard = Object.entries(game.players)
     .map(([id, p]) => ({ id, name: p.name, score: p.score, avatar: p.avatar }))
     .sort((a, b) => b.score - a.score);

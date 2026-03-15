@@ -131,6 +131,85 @@ const PROMPTS = [
   "You're a side quest NPC. What mission do you give people?",
   "Write a BeReal caption for your most embarrassing moment.",
   "What's your biggest 'it's giving...' moment?",
+
+  // Expanded: Food & Cooking
+  "What would be the worst food combination to serve at Thanksgiving?",
+  "Name a energy drink flavor that should never exist.",
+  "Write a one-star review of your school's cafeteria.",
+  "What's the worst cereal mascot you could invent?",
+  "Describe your cooking skill using only ingredients.",
+  "What would a sentient pickle say to another pickle?",
+
+  // Expanded: Fashion & Appearance
+  "Design the most ridiculous outfit for gym class.",
+  "What's the worst fashion trend of all time?",
+  "Describe your personal style if you had zero taste.",
+  "Name a shoe brand that would go bankrupt immediately.",
+  "What's the most cursed hairstyle ever attempted?",
+
+  // Expanded: Technology & Gaming
+  "What would a very confused AI write as homework?",
+  "Design the worst video game controller imaginable.",
+  "What's the worst tech support advice you could give?",
+  "Write an angry review of your own phone.",
+  "What would a glitchy video game character say?",
+  "Name a completely useless tech gadget.",
+
+  // Expanded: Movies & Entertainment
+  "What's the worst movie title you could think of?",
+  "Write a trailer for a movie that should not exist.",
+  "What would a villain's Rotten Tomatoes review say?",
+  "Design the worst plot twist ever.",
+  "Name an actor as a villain doing their daily job.",
+
+  // Expanded: Sports & Competitions
+  "What's the most ridiculous Olympic sport idea?",
+  "Write championship commentary for people eating lunch.",
+  "What would esports look like if it were a real sport?",
+  "Name a sport that combines two terrible combinations.",
+  "What's the worst team mascot possible?",
+
+  // Expanded: Travel & Adventure
+  "Write a travel review of the worst vacation spot.",
+  "What would a lost tourist write in a TripAdvisor review?",
+  "Design the worst cruise ship activity ever.",
+  "Name a destination nobody would ever want to visit.",
+  "What's the most chaotic road trip that could happen?",
+
+  // Expanded: Animals & Nature
+  "If a squirrel wrote a yelp review of a tree.",
+  "What would a confused bird think about buildings?",
+  "Write a nature documentary about household pests.",
+  "What's the weirdest animal superpower?",
+  "Describe your pet as if it had a criminal record.",
+
+  // Expanded: Relationships & Social
+  "What would your enemy's wedding toast say?",
+  "Write the worst pickup line from an alien.",
+  "What's the most awkward thing to do at a party?",
+  "Describe your crush like you're writing a court report.",
+  "Write the worst apology text possible.",
+
+  // Expanded: Hypotheticals & Scenarios
+  "If you were a sandwich, what would you be?",
+  "What's the worst supermarket you could shop at?",
+  "Write a will for your left sock.",
+  "If trash talked, what would it say?",
+  "Design the worst house ever built.",
+
+  // Expanded: School & Learning
+  "Write the worst college application essay ever.",
+  "What would your report card say if it was honest?",
+  "Design a completely useless school subject.",
+  "What's the worst homework excuse that's actually true?",
+  "Write a love letter from a student to sleep.",
+
+  // Expanded: Trending Vibes
+  "What's the most 'random and quirky' thing you could do?",
+  "Write in the most overused slang voice possible.",
+  "What would a drama starter's apology note say?",
+  "Describe yourself as a flavor of gatorade.",
+  "What's your most 'main character moment' that flopped?",
 ];
 
 /**

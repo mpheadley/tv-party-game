@@ -65,6 +65,81 @@ const DRAWING_PROMPTS = [
   "Draw your homework rebelling",
   "Draw Monday",
   "Draw your brain during a test",
+
+  // Expanded: Food
+  "Draw a donut",
+  "Draw sushi",
+  "Draw a taco",
+  "Draw a burger",
+  "Draw ice cream",
+  "Draw a cake",
+  "Draw pasta",
+
+  // Expanded: Animals
+  "Draw a lion",
+  "Draw a bear",
+  "Draw a monkey",
+  "Draw a snake",
+  "Draw an octopus",
+  "Draw a butterfly",
+  "Draw a parrot",
+  "Draw a shark",
+
+  // Expanded: Technology
+  "Draw a computer",
+  "Draw a laptop",
+  "Draw a tablet",
+  "Draw a robot",
+  "Draw a UFO",
+  "Draw a rocket ship",
+  "Draw social media",
+
+  // Expanded: Nature
+  "Draw the ocean",
+  "Draw a mountain",
+  "Draw a volcano",
+  "Draw a waterfall",
+  "Draw lightning",
+  "Draw a rainbow",
+  "Draw a forest",
+
+  // Expanded: School
+  "Draw a classroom",
+  "Draw a locker",
+  "Draw a desk",
+  "Draw a whiteboard",
+  "Draw a pencil",
+  "Draw a calculator",
+
+  // Expanded: Sports
+  "Draw basketball",
+  "Draw soccer",
+  "Draw a skateboard",
+  "Draw skiing",
+  "Draw swimming",
+  "Draw a surfboard",
+
+  // Expanded: Emotions & Concepts
+  "Draw lazy",
+  "Draw sick",
+  "Draw confused",
+  "Draw proud",
+  "Draw jealous",
+  "Draw embarrassed",
+  "Draw love",
+  "Draw stress",
+
+  // Expanded: Silly / Unhinged
+  "Draw your screen time",
+  "Draw a red flag",
+  "Draw what it's like waking up late",
+  "Draw your crush noticing you",
+  "Draw yourself failing a test",
+  "Draw your group chat vibes",
+  "Draw zooming into class",
+  "Draw your WiFi dying at 1% battery",
+  "Draw your last brain cell working",
+  "Draw procrastination",
 ];
 
 /**

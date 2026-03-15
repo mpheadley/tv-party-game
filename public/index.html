@@ -19,38 +19,38 @@
     </div>
 
     <div class="landing-actions">
-      <button class="landing-btn landing-btn-primary" id="btn-create-room">Create a Room</button>
+      <button class="landing-btn landing-btn-primary" id="btn-create-room">🎮 Create a Room</button>
       <div class="landing-divider"><span>or join an existing room</span></div>
       <div class="landing-join-row">
         <input type="text" id="join-code-input" class="landing-code-input" placeholder="ABCD" maxlength="4" autocomplete="off" spellcheck="false" aria-label="Room code">
-        <button class="landing-btn-secondary" id="btn-join-room">Join</button>
+        <button class="landing-btn-secondary" id="btn-join-room">👉 Join</button>
       </div>
     </div>
 
     <div class="landing-how">
-      <h2>How to Play</h2>
+      <h2>🕹️ How to Play</h2>
       <div class="landing-steps">
         <div class="landing-step">
           <div class="step-number">1</div>
-          <div class="step-text"><strong>Create a room</strong> and share the 4-letter code with your group</div>
+          <div class="step-text"><strong>Create a room</strong> and share the 4-letter code with your group 🔗</div>
         </div>
         <div class="landing-step">
           <div class="step-number">2</div>
-          <div class="step-text"><strong>Everyone joins</strong> on their phone — no app needed</div>
+          <div class="step-text"><strong>Everyone joins</strong> on their phone — no app needed 📲</div>
         </div>
         <div class="landing-step">
           <div class="step-number">3</div>
-          <div class="step-text"><strong>Answer the prompt</strong> — be funny, be weird, be bold</div>
+          <div class="step-text"><strong>Answer the prompt</strong> — be funny, be weird, be bold 😈</div>
         </div>
         <div class="landing-step">
           <div class="step-number">4</div>
-          <div class="step-text"><strong>Vote for your favorite</strong> — the best (worst?) answer wins the round</div>
+          <div class="step-text"><strong>Vote for your favorite</strong> — the best (worst?) answer wins the round 🏆</div>
         </div>
       </div>
     </div>
 
     <div class="landing-modes">
-      <h2>Two Ways to Play</h2>
+      <h2>✌️ Two Ways to Play</h2>
       <div class="landing-mode-cards">
         <div class="landing-mode-card">
           <div class="mode-icon">📺</div>
@@ -66,7 +66,7 @@
     </div>
 
     <div class="landing-footer">
-      <p>3–16 players &bull; Ages 9+ &bull; Free &bull; No app download</p>
+      <p>👥 3–16 players &bull; 🎂 Ages 9+ &bull; 🆓 Free &bull; 📲 No app download</p>
     </div>
   </div>
   </main>
@@ -83,7 +83,7 @@
     document.getElementById('btn-create-room').addEventListener('click', async () => {
       const btn = document.getElementById('btn-create-room');
       btn.disabled = true;
-      btn.textContent = 'Creating...';
+      btn.textContent = '⏳ Creating...';
       try {
         const res = await fetch('/api/create-room', { method: 'POST' });
         const data = await res.json();
@@ -92,7 +92,7 @@
         }
       } catch (e) {
         btn.disabled = false;
-        btn.textContent = 'Create a Room';
+        btn.textContent = '🎮 Create a Room';
         alert('Failed to create room. Try again.');
       }
     });

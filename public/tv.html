@@ -11,8 +11,8 @@
   <!-- NO ROOM ERROR -->
   <div id="screen-no-room" class="tv-container hidden">
     <h1>Hot Take 🔥</h1>
-    <p class="subtitle" style="color:#ff6b6b;">No room code found in URL.</p>
-    <p style="color:#888; margin-top:1rem;">Go to <a href="/" style="color:#506be6;">the landing page</a> to create a room first.</p>
+    <p class="subtitle" style="color:#ff6b6b;">😬 No room code found in URL.</p>
+    <p style="color:#888; margin-top:1rem;">👉 Go to <a href="/" style="color:#506be6;">the landing page</a> to create a room first.</p>
   </div>
 
   <!-- LOBBY -->
@@ -22,7 +22,7 @@
       <span style="font-size:1.2rem; color:#888;">Room Code</span>
       <span class="room-code-value" id="room-code-display"></span>
     </div>
-    <p class="subtitle">Scan to join the roast 🔥</p>
+    <p class="subtitle">📲 Scan to join the roast 🔥</p>
     <div id="qr-code"></div>
     <p class="join-url" id="join-url"></p>
     <details class="casting-help">
@@ -36,7 +36,7 @@
     </details>
     <div class="player-list" id="player-list"></div>
     <div id="game-mode-selector" style="margin: 1rem 0;">
-      <p style="opacity:0.7; margin:0 0 0.5rem;">Game Mode:</p>
+      <p style="opacity:0.7; margin:0 0 0.5rem;">🎯 Game Mode:</p>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button class="mode-button selected" data-mode="hot-take">🔥 Hot Take</button>
         <button class="mode-button" data-mode="speed-drawing">🎨 Speed Drawing</button>
@@ -44,14 +44,14 @@
       </div>
     </div>
     <div class="round-picker">
-      <button class="round-option" data-rounds="5">Quick<br><span>~8 min</span></button>
-      <button class="round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>
-      <button class="round-option" data-rounds="15">Long<br><span>~22 min</span></button>
+      <button class="round-option" data-rounds="5">⚡ Quick<br><span>~8 min</span></button>
+      <button class="round-option selected" data-rounds="10">🎮 Normal<br><span>~15 min</span></button>
+      <button class="round-option" data-rounds="15">🔥 Long<br><span>~22 min</span></button>
     </div>
     <button class="btn-secondary" id="btn-manage-prompts">⚙️ Manage Prompts</button>
     <button class="btn-secondary" id="btn-manage-settings">⏱️ Game Settings</button>
     <button class="btn-secondary" id="btn-manage-teams">👥 Teams</button>
-    <button class="btn-start" id="btn-start" disabled>Start Game</button>
+    <button class="btn-start" id="btn-start" disabled>🚀 Start Game</button>
     <p class="status" id="lobby-status">Waiting for players...</p>
   </div>
 
@@ -61,16 +61,16 @@
     <p class="prompt-display" id="prompt-text"></p>
     <div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
     <p class="timer-countdown" id="timer-countdown"></p>
-    <p class="status" id="answer-status">Waiting for answers...</p>
+    <p class="status" id="answer-status">✏️ Waiting for answers...</p>
   </div>
 
   <!-- VOTING -->
   <div id="screen-vote" class="tv-container hidden">
-    <p class="round-label">Vote for your favorite!</p>
+    <p class="round-label">⭐ Vote for your favorite!</p>
     <p class="prompt-reminder" id="vote-prompt-text"></p>
     <div class="answers-grid" id="tv-answers"></div>
     <div class="timer-bar"><div class="timer-fill" id="vote-timer-fill"></div></div>
-    <p class="status" id="vote-status">Vote on your phones!</p>
+    <p class="status" id="vote-status">📱 Vote on your phones!</p>
   </div>
 
   <!-- RESULTS -->
@@ -78,24 +78,24 @@
     <p class="round-label" id="results-round"></p>
     <p class="snarky-commentary" id="tv-commentary"></p>
     <div class="answers-grid" id="results-answers"></div>
-    <h2 style="margin-top:2rem; color:#506be6;">Scoreboard</h2>
+    <h2 style="margin-top:2rem; color:#506be6;">📊 Scoreboard</h2>
     <div class="scoreboard" id="results-scoreboard"></div>
-    <button class="btn-start" id="btn-next">Next Round</button>
+    <button class="btn-start" id="btn-next">➡️ Next Round</button>
   </div>
 
   <!-- GAME OVER -->
   <div id="screen-gameover" class="tv-container hidden">
-    <h1>Game Over!</h1>
+    <h1>🏆 Game Over!</h1>
     <div class="winner-banner" id="winner-banner"></div>
     <div class="scoreboard" id="final-scoreboard"></div>
-    <button class="btn-start" id="btn-again" style="margin-top:2rem;">Play Again</button>
+    <button class="btn-start" id="btn-again" style="margin-top:2rem;">🔄 Play Again</button>
     <canvas id="confetti-canvas"></canvas>
   </div>
 
   <!-- CUSTOM PROMPTS MODAL -->
   <div id="prompts-modal" class="modal hidden">
     <div class="modal-content">
-      <h2>Manage Custom Prompts</h2>
+      <h2>📝 Manage Custom Prompts</h2>
       <p style="opacity:0.7;">Add your own prompts (max 50, 5-200 chars each)</p>
       <div style="display:flex; gap:0.5rem; margin:1rem 0;">
         <input type="text" id="prompt-input" placeholder="Type a custom prompt..." maxlength="200" style="flex:1; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
@@ -111,7 +111,7 @@
   <!-- TEAMS MODAL -->
   <div id="teams-modal" class="modal hidden">
     <div class="modal-content">
-      <h2>Game Mode</h2>
+      <h2>👥 Game Mode</h2>
       <p style="opacity:0.7;">Play solo or on teams</p>
 
       <div style="margin:2rem 0;">
@@ -144,7 +144,7 @@
   <!-- GAME SETTINGS MODAL -->
   <div id="settings-modal" class="modal hidden">
     <div class="modal-content">
-      <h2>Game Settings</h2>
+      <h2>⚙️ Game Settings</h2>
       <p style="opacity:0.7;">Customize the game experience</p>
 
       <div class="setting-group">
@@ -195,17 +195,51 @@
       if (!audioCtx) return;
 
       switch (type) {
-        case 'join': playTone([440, 554, 659], 0.08, 'sine'); break;
-        case 'round-start': playTone([330, 440, 554, 659], 0.12, 'square'); break;
-        case 'submit': playTone([500, 600], 0.06, 'sine'); break;
-        case 'vote-open': playTone([600, 700, 800], 0.12, 'sine'); break;
-        case 'vote-cast': playTone([600, 800], 0.06, 'sine'); break;
-        case 'vote-close': playTone([800, 600, 400], 0.15, 'sine'); break;
-        case 'times-up': playTone([440, 330, 220], 0.2, 'sawtooth'); break;
-        case 'results': playTone([330, 440, 554, 659, 880], 0.15, 'sine'); break;
+        case 'join':
+          // Warm welcome chord — major triad with harmonics
+          playChord([440, 554, 659], 0.15, 'sine', 0.12);
+          playChord([880], 0.1, 'triangle', 0.05); // octave shimmer
+          break;
+        case 'round-start':
+          // Dramatic opening — building chord with anticipation
+          playTone([330, 440, 554, 659], 0.12, 'square');
+          setTimeout(() => playChord([659, 880], 0.2, 'sine', 0.08), 500);
+          break;
+        case 'submit':
+          // Satisfying confirmation pop
+          playTone([500, 700], 0.06, 'sine');
+          break;
+        case 'vote-open':
+          // Attention-grabbing ascending with shimmer
+          playTone([600, 700, 800], 0.12, 'sine');
+          playChord([1200], 0.08, 'triangle', 0.04); // high sparkle
+          break;
+        case 'vote-cast':
+          playTone([600, 800], 0.06, 'sine');
+          break;
+        case 'vote-close':
+          // Decisive descending chord
+          playTone([800, 600, 400], 0.15, 'sine');
+          playChord([200], 0.3, 'triangle', 0.06); // bass thud
+          break;
+        case 'times-up':
+          // Urgent alarm — layered for more presence
+          playTone([440, 330, 220], 0.2, 'sawtooth');
+          playChord([880, 660], 0.15, 'square', 0.06);
+          break;
+        case 'results':
+          // Exciting reveal buildup
+          playTone([330, 440, 554, 659, 880], 0.15, 'sine');
+          setTimeout(() => playChord([880, 1100, 1320], 0.25, 'triangle', 0.06), 700);
+          break;
         case 'reveal': playReveal(); break;
         case 'tick': playTick(); break;
         case 'gameover': playFanfare(); break;
+        case 'countdown-warning':
+          // Tension building — heartbeat-like pulse
+          playChord([150], 0.15, 'sine', 0.12);
+          setTimeout(() => playChord([150], 0.1, 'sine', 0.08), 200);
+          break;
       }
     }
 
@@ -223,11 +257,29 @@
       });
     }
 
+    // Play a chord (multiple simultaneous tones) for richer sound
+    function playChord(freqs, duration, type, vol) {
+      freqs.forEach(freq => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol || 0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration + 0.05);
+      });
+    }
+
     function playFanfare() {
+      // Richer fanfare with harmony layer
       const melody = [523, 659, 784, 1047, 784, 1047];
+      const harmony = [262, 330, 392, 523, 392, 523];
       const durations = [0.15, 0.15, 0.15, 0.3, 0.1, 0.4];
       let time = audioCtx.currentTime;
       melody.forEach((freq, i) => {
+        // Melody
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'square';
@@ -237,11 +289,27 @@
         osc.connect(gain).connect(audioCtx.destination);
         osc.start(time);
         osc.stop(time + durations[i] + 0.05);
+
+        // Harmony (lower octave, softer)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.value = harmony[i];
+        gain2.gain.setValueAtTime(0.06, time);
+        gain2.gain.exponentialRampToValueAtTime(0.001, time + durations[i]);
+        osc2.connect(gain2).connect(audioCtx.destination);
+        osc2.start(time);
+        osc2.stop(time + durations[i] + 0.05);
+
         time += durations[i];
       });
+
+      // Final sustain chord
+      setTimeout(() => playChord([523, 659, 784, 1047], 0.8, 'triangle', 0.06), 1200);
     }
 
     function playReveal() {
+      // Richer reveal — rising sweep with harmonic
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
@@ -252,6 +320,18 @@
       osc.connect(gain).connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.45);
+
+      // Add sparkle at the top
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(400, audioCtx.currentTime);
+      osc2.frequency.exponentialRampToValueAtTime(1600, audioCtx.currentTime + 0.3);
+      gain2.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      osc2.connect(gain2).connect(audioCtx.destination);
+      osc2.start();
+      osc2.stop(audioCtx.currentTime + 0.4);
     }
 
     function playTick() {
@@ -411,11 +491,11 @@
       ).join('');
 
       const btn = document.getElementById('btn-start');
-      btn.disabled = players.length < 2;
+      btn.disabled = players.length < 3;
       document.getElementById('lobby-status').textContent =
-        players.length < 2
-          ? `Need at least 2 players (${players.length} joined)`
-          : `${players.length} players ready!`;
+        players.length < 3
+          ? `⏳ Need at least 3 players (${players.length} joined)`
+          : `🎮 ${players.length} players ready!`;
     }
 
     // Round picker
@@ -449,7 +529,7 @@
         case 'prompt':
           showScreen('prompt');
           document.getElementById('round-label').textContent =
-            `Round ${data.round} of ${data.totalRounds}`;
+            `🎯 Round ${data.round} of ${data.totalRounds}`;
           document.getElementById('prompt-text').textContent = data.prompt;
           document.getElementById('answer-status').textContent = 'Waiting for answers...';
 
@@ -555,7 +635,7 @@
           showScreen('results');
           playSound('reveal');
           document.getElementById('results-round').textContent =
-            `Round ${data.round} of ${data.totalRounds} — Results`;
+            `🏅 Round ${data.round} of ${data.totalRounds} — Results`;
           document.getElementById('tv-commentary').textContent = data.commentary || '';
           const rGrid = document.getElementById('results-answers');
 
@@ -581,7 +661,7 @@
           }
           renderScoreboard('results-scoreboard', data.scoreboard);
           document.getElementById('btn-next').textContent =
-            data.round >= data.totalRounds ? 'Final Scores' : 'Next Round';
+            data.round >= data.totalRounds ? '🏆 Final Scores' : '➡️ Next Round';
           break;
 
         case 'gameover':
@@ -592,7 +672,7 @@
             const winner = data.scoreboard[0];
             document.getElementById('winner-banner').innerHTML =
               `<span class="winner-avatar">${winner.avatar}</span>
-               <span class="winner-name">${escapeHtml(winner.name)} wins!</span>`;
+               <span class="winner-name">${escapeHtml(winner.name)} wins! 🎉</span>`;
           }
           setTimeout(launchConfetti, 500);
           break;
@@ -601,13 +681,15 @@
 
     // Progress updates
     socket.on('answer-progress', (data) => {
+      const allIn = data.answered === data.total;
       document.getElementById('answer-status').textContent =
-        `${data.answered} of ${data.total} answered`;
+        allIn ? `✅ All ${data.total} answers in!` : `✏️ ${data.answered} of ${data.total} answered`;
     });
 
     socket.on('vote-progress', (data) => {
+      const allIn = data.voted === data.total;
       document.getElementById('vote-status').textContent =
-        `${data.voted} of ${data.total} voted`;
+        allIn ? `✅ All votes cast!` : `📱 ${data.voted} of ${data.total} voted`;
     });
 
     // Next round / play again
@@ -793,12 +875,15 @@
     function renderScoreboard(elementId, scoreboard) {
       const el = document.getElementById(elementId);
       const medals = ['🥇', '🥈', '🥉'];
-      el.innerHTML = scoreboard.map((p, i) =>
-        `<div class="score-row ${i === 0 ? 'first-place' : ''}">
-          <span>${medals[i] || ''} ${p.avatar} ${escapeHtml(p.name)}</span>
+      const rankLabels = ['👑', '', '', ''];
+      el.innerHTML = scoreboard.map((p, i) => {
+        const medal = medals[i] || `#${i + 1}`;
+        const crown = i === 0 ? ' 👑' : '';
+        return `<div class="score-row ${i === 0 ? 'first-place' : ''}">
+          <span>${medal} ${p.avatar} ${escapeHtml(p.name)}${crown}</span>
           <span class="points">${p.score} pt${p.score !== 1 ? 's' : ''}</span>
-        </div>`
-      ).join('');
+        </div>`;
+      }).join('');
     }
 
     function escapeHtml(text) {

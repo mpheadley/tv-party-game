@@ -36,7 +36,7 @@
       <input type="text" id="name-input" placeholder="Your name" maxlength="20" autocomplete="off" aria-label="Your name">
       <label class="emoji-label">Pick your avatar</label>
       <div class="emoji-picker" id="emoji-picker"></div>
-      <button id="btn-join">Join Game</button>
+      <button id="btn-join">🎮 Join Game</button>
     </div>
     <p class="status" id="join-error" style="color:#ff6b6b;"></p>
   </div>
@@ -59,7 +59,7 @@
 
   <!-- TEAM SELECTION -->
   <div id="screen-team-select" class="phone-container hidden">
-    <h2>Pick Your Team</h2>
+    <h2>🤝 Pick Your Team</h2>
     <div id="team-options" class="team-options"></div>
   </div>
 
@@ -70,7 +70,7 @@
       <p id="current-mode-display" style="margin:0.5rem 0 0; font-size:1.2rem; font-weight:bold;">🔥 Hot Take</p>
     </div>
     <div class="phone-avatar" id="my-avatar"></div>
-    <h1>You're In!</h1>
+    <h1>🎉 You're In!</h1>
     <p class="waiting-msg" id="waiting-name"></p>
     <!-- Host controls in lobby -->
     <div id="host-lobby-controls" class="host-controls hidden">
@@ -80,10 +80,10 @@
         <button class="phone-round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>
         <button class="phone-round-option" data-rounds="15">Long<br><span>~22 min</span></button>
       </div>
-      <button class="btn-host" id="btn-host-start" disabled>Start Game</button>
-      <p class="status" id="host-lobby-status">Waiting for players...</p>
+      <button class="btn-host" id="btn-host-start" disabled>🚀 Start Game</button>
+      <p class="status" id="host-lobby-status">⏳ Waiting for players...</p>
     </div>
-    <p class="status" id="non-host-status">Waiting for the game to start...</p>
+    <p class="status" id="non-host-status">⏳ Waiting for the game to start...</p>
     <!-- Host: QR code + share invite in lobby -->
     <div id="host-invite-section" class="host-invite-section hidden">
       <div id="lobby-qr" class="lobby-qr"></div>
@@ -106,7 +106,7 @@
     <div class="phone-timer" id="phone-timer"></div>
     <div class="phone-answer">
       <textarea id="answer-input" placeholder="Type your answer..." maxlength="200"></textarea>
-      <button id="btn-submit">Submit Answer</button>
+      <button id="btn-submit">📨 Submit Answer</button>
     </div>
   </div>
 
@@ -117,7 +117,7 @@
     <p style="font-size:0.9rem; opacity:0.6; text-align:center;">Look at the TV and guess the word</p>
     <div class="phone-answer">
       <input type="text" id="guess-input" placeholder="Type your guess..." maxlength="100" autocomplete="off">
-      <button id="btn-submit-guess">Submit Guess</button>
+      <button id="btn-submit-guess">🤔 Submit Guess</button>
     </div>
   </div>
 
@@ -149,20 +149,20 @@
       <button id="btn-clear" class="tool-button danger">🗑️ Clear</button>
     </div>
     <canvas id="drawing-canvas"></canvas>
-    <button id="btn-submit-drawing" class="btn-submit" style="width:100%;">Submit Drawing</button>
+    <button id="btn-submit-drawing" class="btn-submit" style="width:100%;">🎨 Submit Drawing</button>
   </div>
 
   <!-- ANSWER SUBMITTED -->
   <div id="screen-answered" class="phone-container hidden">
     <p class="waiting-msg">Answer submitted!</p>
     <p class="status" id="my-answer-note" style="color:#506be6; font-style:italic; margin-top:1rem;"></p>
-    <p class="status" id="answer-waiting-status">Waiting for everyone else...</p>
+    <p class="status" id="answer-waiting-status">⏳ Waiting for everyone else...</p>
     <p class="pending-names" id="answer-pending-names"></p>
   </div>
 
   <!-- VOTE -->
   <div id="screen-vote" class="phone-container hidden">
-    <p class="phone-prompt">Vote for your favorite!</p>
+    <p class="phone-prompt">⭐ Vote for your favorite!</p>
     <p class="phone-prompt-reminder" id="vote-prompt-reminder"></p>
     <div class="phone-timer" id="vote-timer"></div>
     <div class="vote-options" id="vote-options"></div>
@@ -171,7 +171,7 @@
   <!-- VOTE SUBMITTED -->
   <div id="screen-voted" class="phone-container hidden">
     <p class="waiting-msg">Vote cast!</p>
-    <p class="status" id="vote-waiting-status">Waiting for everyone else...</p>
+    <p class="status" id="vote-waiting-status">⏳ Waiting for everyone else...</p>
     <p class="pending-names" id="vote-pending-names"></p>
   </div>
 
@@ -188,12 +188,12 @@
 
   <!-- GAME OVER -->
   <div id="screen-gameover" class="phone-container hidden">
-    <h1>Game Over!</h1>
+    <h1>🏆 Game Over!</h1>
     <div class="phone-winner-banner" id="phone-winner-banner"></div>
     <p class="phone-rank" id="final-rank"></p>
     <p class="status" id="final-score"></p>
     <div class="phone-scoreboard" id="final-phone-scoreboard"></div>
-    <button class="btn-host host-only hidden" id="btn-host-again" style="margin-top:1rem;">Play Again</button>
+    <button class="btn-host host-only hidden" id="btn-host-again" style="margin-top:1rem;">🔄 Play Again</button>
     <canvas id="phone-confetti-canvas"></canvas>
   </div>
 
@@ -311,18 +311,51 @@
       if (!audioCtx) return;
 
       switch (type) {
-        case 'join': playTone([440, 554, 659], 0.08, 'sine'); break;
-        case 'round-start': playTone([330, 440, 554, 659], 0.12, 'square'); break;
-        case 'submit': playTone([500, 600], 0.06, 'sine'); break;
-        case 'vote-open': playTone([600, 700, 800], 0.12, 'sine'); break;
-        case 'vote-cast': playTone([600, 800], 0.06, 'sine'); break;
-        case 'vote-close': playTone([800, 600, 400], 0.15, 'sine'); break;
-        case 'times-up': playTone([440, 330, 220], 0.2, 'sawtooth'); break;
-        case 'results': playTone([330, 440, 554, 659, 880], 0.15, 'sine'); break;
+        case 'join':
+          playTone([440, 554, 659], 0.08, 'sine');
+          playChord([880], 0.1, 'triangle', 0.04);
+          break;
+        case 'round-start':
+          playTone([330, 440, 554, 659], 0.12, 'square');
+          setTimeout(() => playChord([659, 880], 0.2, 'sine', 0.06), 500);
+          break;
+        case 'submit':
+          playTone([500, 700], 0.06, 'sine');
+          break;
+        case 'vote-open':
+          playTone([600, 700, 800], 0.12, 'sine');
+          playChord([1200], 0.08, 'triangle', 0.03);
+          break;
+        case 'vote-cast':
+          playTone([600, 800], 0.06, 'sine');
+          break;
+        case 'vote-close':
+          playTone([800, 600, 400], 0.15, 'sine');
+          break;
+        case 'times-up':
+          playTone([440, 330, 220], 0.2, 'sawtooth');
+          break;
+        case 'results':
+          playTone([330, 440, 554, 659, 880], 0.15, 'sine');
+          break;
         case 'reveal': playReveal(); break;
         case 'tick': playTick(); break;
         case 'gameover': playFanfare(); break;
       }
+    }
+
+    function playChord(freqs, duration, type, vol) {
+      freqs.forEach(freq => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol || 0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration + 0.05);
+      });
     }
 
     function playTone(freqs, duration, type) {
@@ -1183,10 +1216,10 @@
       // Host: update start button
       if (!isHost) return;
       const btn = document.getElementById('btn-host-start');
-      btn.disabled = players.length < 2;
+      btn.disabled = players.length < 3;
       document.getElementById('host-lobby-status').textContent =
-        players.length < 2
-          ? `Need at least 2 players (${players.length} joined)`
+        players.length < 3
+          ? `Need at least 3 players (${players.length} joined)`
           : `${players.length} players ready!`;
     });
 

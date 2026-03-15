@@ -490,8 +490,8 @@ io.on('connection', (socket) => {
     const room = getRoom(socketRoom);
     if (!room) return;
     if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
-    if (Object.keys(room.players).length < 2) {
-      socket.emit('error-msg', 'Need at least 2 players!');
+    if (Object.keys(room.players).length < 3) {
+      socket.emit('error-msg', 'Need at least 3 players!');
       return;
     }
 

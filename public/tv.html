@@ -494,14 +494,14 @@
             if (data.answers.length > 0 && data.answers[0].text && data.answers[0].text.startsWith('data:image')) {
               // Drawing mode
               grid.innerHTML = data.answers.map((a, i) =>
-                `<div class="answer-card drawing-card" style="animation-delay: ${i * 0.15}s">
+                `<div class="answer-card drawing-card" style="--card-index: ${i}">
                   <img src="${a.text}" alt="Drawing ${i+1}" style="width:100%; height:100%; object-fit:contain;">
                 </div>`
               ).join('');
             } else {
               // Text mode
               grid.innerHTML = data.answers.map((a, i) =>
-                `<div class="answer-card" style="animation-delay: ${i * 0.15}s">${escapeHtml(a.text)}</div>`
+                `<div class="answer-card" style="--card-index: ${i}">${escapeHtml(a.text)}</div>`
               ).join('');
             }
           }

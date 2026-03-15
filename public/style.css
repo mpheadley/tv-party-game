@@ -915,5 +915,150 @@ body {
   font-size: 0.9rem;
 }
 
+/* ── Enhanced Animations & Transitions ── */
+
+/* Fade in/out transitions for screens */
+.tv-container,
+.phone-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Answer card stagger reveals */
+.answer-card {
+  animation: cardReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+  animation-delay: var(--card-index, 0) * 0.1s;
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Bounce for score increases */
+.score-pop {
+  animation: scoreBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes scoreBounce {
+  0% { transform: scale(0) translateY(20px); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Glow pulse for vote success */
+.vote-success-glow {
+  animation: votePulse 0.5s ease-out;
+}
+
+@keyframes votePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.8);
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 15px rgba(102, 126, 234, 0);
+    transform: scale(1);
+  }
+}
+
+/* Shake animation for emphasis */
+.shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Celebratory spin */
+.celebrate {
+  animation: celebrate 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes celebrate {
+  0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* Smooth transitions for interactive elements */
+button {
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+button:active {
+  transform: scale(0.98) !important;
+}
+
+/* Hover glow for selectable items */
+.vote-btn:hover {
+  box-shadow: inset 0 0 10px rgba(102, 126, 234, 0.3);
+  border-color: #667eea;
+}
+
+.emoji-option:active {
+  animation: emojiSelect 0.3s ease-out;
+}
+
+@keyframes emojiSelect {
+  0% { transform: scale(1.1); }
+  100% { transform: scale(1.1); }
+}
+
+/* Answer card hover effects */
+.answer-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+  transform: translateY(-4px);
+}
+
+/* Timer pulsing at final seconds */
+.timer-final-seconds {
+  animation: timerPulse 0.5s ease-in-out infinite;
+}
+
+@keyframes timerPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+/* Smooth scoreboard transitions */
+.score-row {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.score-row:hover {
+  transform: translateX(10px);
+}
+
+/* Screen fade transitions */
+@media (prefers-reduced-motion: no-preference) {
+  .tv-container,
+  .phone-container {
+    transition: opacity 0.4s ease-out;
+  }
+}
+
 /* Hidden utility */
 .hidden { display: none !important; }

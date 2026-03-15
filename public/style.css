@@ -1172,6 +1172,65 @@ button:active {
 
 .landing-code-input:focus { border-color: #506be6; }
 
+.landing-games {
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 2.5rem;
+}
+
+.landing-games h2 {
+  font-size: 1.5rem;
+  color: #ccc;
+  margin-bottom: 1.5rem;
+}
+
+.landing-game-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.landing-game-card {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  text-align: center;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.landing-game-card:hover {
+  border-color: #506be6;
+  transform: translateY(-2px);
+}
+
+.game-card-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.landing-game-card h3 {
+  font-size: 1.1rem;
+  color: #e8e8e8;
+  margin-bottom: 0.4rem;
+}
+
+.landing-game-card p {
+  font-size: 0.85rem;
+  color: #888;
+  line-height: 1.4;
+}
+
+.game-card-tag {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  background: rgba(80, 107, 230, 0.15);
+  color: #7b93ee;
+  border-radius: 0.4rem;
+}
+
 .landing-how, .landing-modes {
   width: 100%;
   max-width: 700px;
@@ -1252,6 +1311,20 @@ button:active {
   padding-top: 2rem;
   color: #555;
   font-size: 0.9rem;
+}
+
+.landing-credit {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.landing-credit a {
+  color: #506be6;
+  text-decoration: none;
+}
+
+.landing-credit a:hover {
+  text-decoration: underline;
 }
 
 /* ── Casting Help ── */
@@ -1751,7 +1824,8 @@ button,
 
 /* Landing page responsive */
 @media (max-width: 500px) {
-  .landing-mode-cards {
+  .landing-mode-cards,
+  .landing-game-cards {
     grid-template-columns: 1fr;
   }
   .landing-hero h1 {

@@ -1396,6 +1396,23 @@ button:active {
 
 .tv-link:hover { opacity: 1; }
 
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  background: #506be6;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  z-index: 1000;
+  font-size: 0.9rem;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
 /* Hidden utility */
 .hidden { display: none !important; }
 

@@ -4,10 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hot Take 🔥 — The Party Game</title>
+  <meta name="description" content="Free Jackbox-style party game for 3–16 players. No app needed — just phones and a room code. Be funny, vote for favorites, and crown the worst answer.">
+  <meta name="robots" content="index, follow">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main">
   <div class="landing">
     <div class="landing-hero">
       <h1>Hot Take 🔥</h1>
@@ -18,7 +22,7 @@
       <button class="landing-btn landing-btn-primary" id="btn-create-room">Create a Room</button>
       <div class="landing-divider"><span>or join an existing room</span></div>
       <div class="landing-join-row">
-        <input type="text" id="join-code-input" class="landing-code-input" placeholder="ABCD" maxlength="4" autocomplete="off" spellcheck="false">
+        <input type="text" id="join-code-input" class="landing-code-input" placeholder="ABCD" maxlength="4" autocomplete="off" spellcheck="false" aria-label="Room code">
         <button class="landing-btn-secondary" id="btn-join-room">Join</button>
       </div>
     </div>
@@ -65,6 +69,7 @@
       <p>3–16 players &bull; Ages 9+ &bull; Free &bull; No app download</p>
     </div>
   </div>
+  </main>
 
   <script>
     const codeInput = document.getElementById('join-code-input');

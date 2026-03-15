@@ -560,43 +560,44 @@
         vibrate(200);
         speakPrompt(data.prompt);
 
-        // Animate phone timer bar (for text answer mode)
-        const timerFill = document.getElementById('phone-timer-fill');
-        if (timerFill) {
-          timerFill.style.transition = 'none';
-          timerFill.style.width = '100%';
-          requestAnimationFrame(() => {
-            timerFill.style.transition = `width ${data.timeLimit}s linear`;
-            timerFill.style.width = '0%';
-          });
-        }
-
-        // Phone timer (for text answer mode)
-        let timeLeft = data.timeLimit;
-        const timerEl = document.getElementById('phone-timer');
-        timerEl.textContent = timeLeft + 's';
-        timerEl.classList.remove('timer-urgent');
-        phoneTimer = setInterval(() => {
-          timeLeft--;
-          timerEl.textContent = Math.max(0, timeLeft) + 's';
-          if (timeLeft <= 10) {
-            timerEl.classList.add('timer-urgent');
-            if (timeLeft > 0) { vibrate(50); playSound('tick'); }
+        // Text-answer timer (hot-take only — drawing modes have their own timers above)
+        if (data.gameMode !== 'speed-drawing' && data.gameMode !== 'pictionary') {
+          const timerFill = document.getElementById('phone-timer-fill');
+          if (timerFill) {
+            timerFill.style.transition = 'none';
+            timerFill.style.width = '100%';
+            requestAnimationFrame(() => {
+              timerFill.style.transition = `width ${data.timeLimit}s linear`;
+              timerFill.style.width = '0%';
+            });
           }
-          if (timeLeft <= 0) {
-            clearInterval(phoneTimer);
-            if (!hasSubmitted) {
-              const text = document.getElementById('answer-input').value.trim();
-              if (text) {
-                hasSubmitted = true;
-                document.getElementById('btn-submit').disabled = true;
-                document.getElementById('my-answer-note').textContent = `Your answer: "${text}"`;
-                socket.emit('answer', text);
-                showScreen('answered');
+
+          let timeLeft = data.timeLimit;
+          const timerEl = document.getElementById('phone-timer');
+          timerEl.textContent = timeLeft + 's';
+          timerEl.classList.remove('timer-urgent');
+          phoneTimer = setInterval(() => {
+            timeLeft--;
+            timerEl.textContent = Math.max(0, timeLeft) + 's';
+            if (timeLeft <= 10) {
+              timerEl.classList.add('timer-urgent');
+              if (timeLeft > 0) { vibrate(50); playSound('tick'); }
+            }
+            if (timeLeft <= 0) {
+              clearInterval(phoneTimer);
+              if (!hasSubmitted) {
+                const text = document.getElementById('answer-input').value.trim();
+                if (text) {
+                  hasSubmitted = true;
+                  document.getElementById('btn-submit').disabled = true;
+                  document.getElementById('my-answer-note').textContent = `Your answer: "${text}"`;
+                  socket.emit('answer', text);
+                  showScreen('answered');
+                }
               }
             }
-          }
-        }, 1000);
+          }, 1000);
+        }
         break;
 
       case 'vote':

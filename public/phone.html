@@ -509,10 +509,29 @@
       showStatusMessage(`✅ ${data.name} reconnected!`);
     });
 
+    // ── Reconnection UI Buttons ──
+    document.getElementById('btn-rejoin').addEventListener('click', () => {
+      if (myToken) {
+        document.getElementById('btn-rejoin').disabled = true;
+        socket.emit('reconnect-attempt', myToken);
+      }
+    });
+
+    document.getElementById('btn-new-session').addEventListener('click', () => {
+      myToken = null;
+      sessionStorage.removeItem('hottake-token');
+      clearGraceTimer();
+      location.reload();
+    });
+
     // ── Grace Period Timer ──
     function startGraceTimer() {
       graceSecondsRemaining = 120;
       if (graceTimerInterval) clearInterval(graceTimerInterval);
+
+      // Show the rejoin button
+      document.getElementById('btn-rejoin').classList.remove('hidden');
+      document.getElementById('btn-new-session').disabled = false;
 
       graceTimerInterval = setInterval(() => {
         graceSecondsRemaining--;
@@ -525,7 +544,16 @@
 
         if (graceSecondsRemaining <= 0) {
           clearGraceTimer();
+          // Disable buttons when grace period expires
+          document.getElementById('btn-rejoin').classList.add('hidden');
+          document.getElementById('btn-rejoin').disabled = true;
+          document.getElementById('btn-new-session').disabled = true;
           showStatusMessage('Grace period expired. Starting new session...');
+          setTimeout(() => {
+            myToken = null;
+            sessionStorage.removeItem('hottake-token');
+            location.reload();
+          }, 2000);
         }
       }, 1000);
     }

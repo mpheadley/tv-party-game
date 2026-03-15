@@ -1065,6 +1065,7 @@
 
         case 'prompt':
           hasSubmitted = false;
+          clearInterval(phoneTimer);
 
           // Choose screen based on game mode
           if (data.gameMode === 'pictionary') {

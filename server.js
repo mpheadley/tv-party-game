@@ -257,8 +257,15 @@ io.on('connection', (socket) => {
 
     game.players[socket.id] = { name: cleanName, score: 0, avatar, token, team: assignedTeam };
 
-    // Store persistent identity
-    playersByToken[token] = { name: cleanName, score: 0, avatar, socketId: socket.id, disconnectTimer: null };
+    // Store persistent identity with session timestamp
+    playersByToken[token] = {
+      name: cleanName,
+      score: 0,
+      avatar,
+      socketId: socket.id,
+      disconnectTimer: null,
+      sessionStartTime: Date.now(), // Track when session started
+    };
 
     // First player becomes host
     const isHost = !game.hostSocket;

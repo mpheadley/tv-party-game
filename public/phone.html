@@ -1886,10 +1886,9 @@
       }
 
       // Host: update start button
-      if (!isHost) { console.log('player-update: not host, skipping start btn'); return; }
+      if (!isHost) return;
       const btn = document.getElementById('btn-host-start');
       const minPlayers = isTestMode ? 1 : (currentGameMode === 'night-falls' ? 5 : 3);
-      console.log('player-update:', { isHost, isTestMode, currentGameMode, minPlayers, playerCount: players.length, disabled: players.length < minPlayers });
       btn.disabled = players.length < minPlayers;
       if (isTestMode) {
         document.getElementById('host-lobby-status').textContent =

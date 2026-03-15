@@ -3,6 +3,9 @@
  * Ensures players are never permanently booted from the game
  */
 
+// Import scoring module at top to avoid repeated imports
+const scoring = require('./scoring');
+
 /**
  * Configuration for graceful disconnection handling
  */
@@ -27,6 +30,7 @@ class ReconnectionManager {
     // playersByToken stores: { token: { name, score, avatar, sessionStartTime, lastActivity } }
     this.disconnectedPlayers = new Map();
     this.reconnectTimers = new Map();
+    this.cleanupInterval = null;
     this.startCleanupInterval();
   }
 
@@ -36,12 +40,16 @@ class ReconnectionManager {
   storeDisconnectedPlayer(token, playerData) {
     if (!token) return false;
 
+    // Preserve sessionStartTime if updating existing player
+    const existingEntry = this.disconnectedPlayers.get(token);
+    const sessionStartTime = existingEntry?.sessionStartTime || playerData.sessionStartTime || Date.now();
+
     this.disconnectedPlayers.set(token, {
       name: playerData.name,
       score: playerData.score,
       avatar: playerData.avatar,
-      sessionStartTime: playerData.sessionStartTime || Date.now(),
-      lastActivity: Date.now(),
+      sessionStartTime: sessionStartTime,
+      lastActivity: Date.now(),  // Always update on store
       wasPlaying: playerData.wasPlaying || false,
     });
 
@@ -122,7 +130,7 @@ class ReconnectionManager {
    * Clean up old sessions periodically
    */
   startCleanupInterval() {
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       let cleaned = 0;
 
@@ -152,6 +160,26 @@ class ReconnectionManager {
         console.log(`⚠️  Removed ${toRemove} oldest disconnected player session(s)`);
       }
     }, RECONNECT_CONFIG.CLEANUP_INTERVAL);
+  }
+
+  /**
+   * Stop cleanup interval (for graceful shutdown)
+   */
+  stopCleanupInterval() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
+  /**
+   * Clean up all timers and data (for shutdown)
+   */
+  destroy() {
+    this.stopCleanupInterval();
+    this.reconnectTimers.forEach(timer => clearTimeout(timer));
+    this.reconnectTimers.clear();
+    this.disconnectedPlayers.clear();
   }
 
   /**
@@ -191,10 +219,29 @@ function handlePlayerDisconnect(socket, game, playersByToken, io, reconnectionMa
 
   const token = player.token;
   const wasInGame = game.phase !== 'lobby';
+  const inLobby = !wasInGame;
 
-  console.log(`⚠️  ${player.name} disconnected (token: ${token})`);
+  console.log(`⚠️  ${player.name} disconnected (token: ${token})${inLobby ? ' [lobby]' : ' [mid-game]'}`);
 
-  // Store in persistent session
+  // In lobby, remove immediately (no game state to preserve)
+  if (inLobby) {
+    delete game.players[socket.id];
+    // Still store in reconnectionManager but with immediate cleanup option
+    reconnectionManager.storeDisconnectedPlayer(token, {
+      name: player.name,
+      score: player.score,
+      avatar: player.avatar,
+      sessionStartTime: playersByToken[token]?.sessionStartTime,
+      wasPlaying: false,
+    });
+    io.emit('player-update', Object.values(game.players).map(p => ({
+      name: p.name,
+      avatar: p.avatar,
+    })));
+    return;
+  }
+
+  // Store in persistent session (mid-game disconnect)
   reconnectionManager.storeDisconnectedPlayer(token, {
     name: player.name,
     score: player.score,
@@ -208,13 +255,8 @@ function handlePlayerDisconnect(socket, game, playersByToken, io, reconnectionMa
     playersByToken[token].score = player.score;
   }
 
-  // Determine grace period based on game state
-  const gracePeriod = wasInGame
-    ? RECONNECT_CONFIG.GRACE_PERIOD_MID_GAME
-    : RECONNECT_CONFIG.GRACE_PERIOD_LOBBY;
-
-  // Set up grace period
-  reconnectionManager.setGracePeriod(token, gracePeriod, () => {
+  // Set up grace period for mid-game disconnects
+  reconnectionManager.setGracePeriod(token, RECONNECT_CONFIG.GRACE_PERIOD_MID_GAME, () => {
     // Grace period expired
     console.log(`⏱️  ${player.name}'s grace period expired — removing from game`);
 
@@ -248,7 +290,6 @@ function handlePlayerDisconnect(socket, game, playersByToken, io, reconnectionMa
         gameLogic.startVoting(game, io);
         console.log('✅ All remaining players answered — advancing to voting');
       } else if (game.phase === 'vote' && gameLogic.checkAllVoted(game)) {
-        const scoring = require('./scoring');
         const scorer = scoring.getScorerForMode(game.gameMode);
         const scoreRound = (game, voteCounts) => scorer(game, voteCounts, playersByToken);
         gameLogic.tallyAndShowResults(game, io, scoreRound);
@@ -269,10 +310,10 @@ function handlePlayerDisconnect(socket, game, playersByToken, io, reconnectionMa
     }
   });
 
-  // Emit disconnect notification
+  // Emit disconnect notification (only for mid-game, since we return early for lobby)
   io.emit('player-disconnected', {
     name: player.name,
-    graceSeconds: Math.floor(gracePeriod / 1000),
+    graceSeconds: Math.floor(RECONNECT_CONFIG.GRACE_PERIOD_MID_GAME / 1000),
     canRejoin: true,
   });
 }
@@ -289,6 +330,12 @@ function handlePlayerReconnect(socket, token, game, playersByToken, io, reconnec
     return false;
   }
 
+  // ✅ FIX: Check if playersByToken entry still exists (race condition)
+  if (!playersByToken[token]) {
+    console.log(`❌ Player session data lost for token ${token} (grace period may have expired)`);
+    return false;
+  }
+
   // Cancel grace period
   reconnectionManager.cancelGracePeriod(token);
 
@@ -300,6 +347,7 @@ function handlePlayerReconnect(socket, token, game, playersByToken, io, reconnec
     token: token,
   };
 
+  // Now safe to update socketId (playersByToken[token] is guaranteed to exist)
   playersByToken[token].socketId = socket.id;
 
   console.log(`✅ ${storedPlayer.name} reconnected (was in game: ${storedPlayer.wasPlaying})`);

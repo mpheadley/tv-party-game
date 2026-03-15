@@ -715,3 +715,22 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`   Phones:  http://${ip}:${PORT}/phone.html`);
   console.log('');
 });
+
+// Graceful shutdown handlers
+process.on('SIGTERM', () => {
+  console.log('📴 SIGTERM received, shutting down gracefully...');
+  reconnectionManager.destroy();
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('📴 SIGINT received, shutting down gracefully...');
+  reconnectionManager.destroy();
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});

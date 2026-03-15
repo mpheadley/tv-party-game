@@ -14,6 +14,7 @@ const settingsModule = require('./src/settings');
 const teamsModule = require('./src/teams');
 const speedDrawingMode = require('./src/modes/speed-drawing');
 const pictionaryMode = require('./src/modes/pictionary');
+const { ReconnectionManager, handlePlayerDisconnect, handlePlayerReconnect } = require('./src/reconnection-handler');
 
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +35,9 @@ const RECONNECT_GRACE = 30000; // 30 seconds grace period for disconnected playe
 // Persistent player identity — survives reconnection
 // { token: { name, score, avatar, socketId, disconnectTimer } }
 let playersByToken = {};
+
+// Initialize reconnection manager for tracking disconnected players
+const reconnectionManager = new ReconnectionManager();
 
 let game = gameLogic.createGameState();
 
@@ -264,6 +268,31 @@ io.on('connection', (socket) => {
     io.emit('player-update', getPlayerList());
     io.emit('sound', 'join');
     console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}${assignedTeam ? ` (${game.teams[assignedTeam]?.name})` : ''}`);
+  });
+
+  // Reconnection attempt — restore player from token
+  socket.on('reconnect-attempt', (token) => {
+    if (!token || !reconnectionManager.canPlayerRejoin(token)) {
+      socket.emit('reconnect-failed');
+      return;
+    }
+
+    const reconnected = handlePlayerReconnect(socket, token, game, playersByToken, io, reconnectionManager);
+
+    if (reconnected) {
+      const player = game.players[socket.id];
+      socket.emit('reconnected', {
+        token,
+        name: player.name,
+        avatar: player.avatar,
+        score: player.score,
+        isHost: game.hostSocket === socket.id,
+        phase: game.phase,
+      });
+      io.emit('sound', 'join');
+    } else {
+      socket.emit('reconnect-failed');
+    }
   });
 
   // Update game settings (TV only, host only)
@@ -638,80 +667,31 @@ io.on('connection', (socket) => {
   // Disconnect — grace period before removing player
   socket.on('disconnect', () => {
     const player = game.players[socket.id];
-    if (player) {
-      const token = player.token;
-      console.log(`${player.name} disconnected (grace period started)`);
 
-      // Update persistent store with latest score
-      if (playersByToken[token]) {
-        playersByToken[token].score = player.score;
-      }
-
-      // In lobby, remove immediately (no game state to preserve)
-      if (game.phase === 'lobby') {
-        delete game.players[socket.id];
-        if (playersByToken[token]) {
-          clearTimeout(playersByToken[token].disconnectTimer);
-          delete playersByToken[token];
-        }
-        io.emit('player-update', getPlayerList());
-      } else {
-        // Mid-game: keep player in game, start grace timer
-        // Mark as disconnected but don't remove yet
-        if (playersByToken[token]) {
-          playersByToken[token].disconnectTimer = setTimeout(() => {
-            // Grace period expired — remove for real
-            console.log(`${player.name} grace period expired — removed from game`);
-            delete game.players[socket.id];
-            delete game.answers[socket.id];
-            delete game.votes[socket.id];
-            delete playersByToken[token];
-            io.emit('player-update', getPlayerList());
-
-            // Check if game can advance
-            if (game.phase === 'prompt' && gameLogic.checkAllAnswered(game) && Object.keys(game.players).length >= 2) {
-              clearTimeout(game.roundTimer);
-              gameLogic.startVoting(game, io);
-            } else if (game.phase === 'vote' && gameLogic.checkAllVoted(game) && Object.keys(game.players).length >= 2) {
-              const scorer = scoring.getScorerForMode(game.gameMode);
-              const scoreRound = (game, voteCounts) => scorer(game, voteCounts, playersByToken);
-              gameLogic.tallyAndShowResults(game, io, scoreRound);
-            }
-
-            // If all players gone, reset
-            if (Object.keys(game.players).length === 0) {
-              gameLogic.resetGame(game, playersByToken);
-              console.log('All players disconnected — reset to lobby');
-            } else if (game.phase !== 'lobby' && Object.keys(game.players).length < 2) {
-              clearTimeout(game.roundTimer);
-              gameLogic.endGame(game, io);
-            }
-
-            // Transfer host if needed
-            if (game.hostSocket === socket.id) {
-              const remainingIds = Object.keys(game.players);
-              if (remainingIds.length > 0) {
-                game.hostSocket = remainingIds[0];
-                io.to(game.hostSocket).emit('host-assigned');
-                console.log(`Host transferred to ${game.players[game.hostSocket].name}`);
-              } else {
-                game.hostSocket = null;
-              }
-            }
-          }, RECONNECT_GRACE);
-        }
-      }
-    }
+    // Handle TV display disconnect
     if (socket.id === game.tvSocket) {
       game.tvSocket = null;
+      console.log('📺 TV display disconnected');
     }
+
+    if (player) {
+      handlePlayerDisconnect(
+        socket,
+        game,
+        playersByToken,
+        io,
+        reconnectionManager,
+        gameLogic
+      );
+    }
+
     // Transfer host immediately in lobby
     if (game.phase === 'lobby' && socket.id === game.hostSocket) {
       const remainingIds = Object.keys(game.players);
       if (remainingIds.length > 0) {
         game.hostSocket = remainingIds[0];
         io.to(game.hostSocket).emit('host-assigned');
-        console.log(`Host transferred to ${game.players[game.hostSocket].name}`);
+        console.log(`👑 Host transferred to ${game.players[game.hostSocket].name}`);
       } else {
         game.hostSocket = null;
       }

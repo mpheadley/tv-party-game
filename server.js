@@ -497,6 +497,7 @@ io.on('connection', (socket) => {
     const room = getRoom(socketRoom);
     if (!room) return;
     if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    console.log(`[GAME] START — mode=${room.gameMode}, players=${Object.keys(room.players).length}, rounds=${data}`);
 
     const playerCount = Object.keys(room.players).length;
     const testMode = room.testMode || false;
@@ -551,7 +552,13 @@ io.on('connection', (socket) => {
   socket.on('answer', (data) => {
     const room = getRoom(socketRoom);
     if (!room) return;
-    if (room.phase !== 'prompt') return;
+    if (room.phase !== 'prompt') {
+      console.log(`[ANSWER] REJECTED — phase is '${room.phase}', not 'prompt' (player=${room.players[socket.id]?.name})`);
+      return;
+    }
+    const playerName = room.players[socket.id]?.name || socket.id;
+    const dataType = typeof data === 'string' && data.startsWith('data:image') ? 'drawing' : 'text';
+    console.log(`[ANSWER] ${playerName} submitted ${dataType} (mode=${room.gameMode}, round=${room.round})`);
 
     if (room.gameMode === 'pictionary') {
       // In test mode, drawer submits drawing → store it and auto-advance
@@ -624,6 +631,7 @@ io.on('connection', (socket) => {
       });
 
       if (gameLogic.checkAllAnswered(room)) {
+        console.log(`[ANSWER] ALL ANSWERED — ${Object.keys(room.answers).length}/${Object.keys(room.players).length}, advancing to vote`);
         clearTimeout(room.roundTimer);
         const roomIo = createRoomEmitter(room);
         gameLogic.startVoting(room, roomIo);
@@ -635,7 +643,11 @@ io.on('connection', (socket) => {
   socket.on('vote', (data) => {
     const room = getRoom(socketRoom);
     if (!room) return;
-    if (room.phase !== 'vote') return;
+    if (room.phase !== 'vote') {
+      console.log(`[VOTE] REJECTED — phase is '${room.phase}', not 'vote' (player=${room.players[socket.id]?.name})`);
+      return;
+    }
+    console.log(`[VOTE] ${room.players[socket.id]?.name} voted (round=${room.round})`);
 
     if (room.gameMode === 'pictionary') {
       const guesserId = data.guesserId;
@@ -725,6 +737,7 @@ io.on('connection', (socket) => {
       });
 
       if (gameLogic.checkAllVoted(room)) {
+        console.log(`[VOTE] ALL VOTED — ${Object.keys(room.votes).length}/${Object.keys(room.players).length}, advancing to results`);
         const scorer = scoring.getScorerForMode(room.gameMode);
         let scoreRound;
 
@@ -756,6 +769,7 @@ io.on('connection', (socket) => {
     const room = getRoom(socketRoom);
     if (!room) return;
     if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    console.log(`[GAME] NEXT ROUND requested — current round=${room.round}, phase=${room.phase}`);
 
     if (room.round >= room.totalRounds) {
       const roomIo = createRoomEmitter(room);

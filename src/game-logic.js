@@ -56,6 +56,8 @@ function startRound(game, pickPrompt, io) {
   game.drawings = {};
   game.guesses = {};
 
+  console.log(`[ROUND ${game.round}/${game.totalRounds}] START — mode=${game.gameMode}, players=${Object.keys(game.players).length}, prompt="${game.currentPrompt}", timeLimit=${game.customSettings.roundTime}s`);
+
   const payload = {
     phase: 'prompt',
     prompt: game.currentPrompt,
@@ -82,7 +84,9 @@ function startRound(game, pickPrompt, io) {
   clearTimeout(game.roundTimer);
   game.roundTimer = setTimeout(() => {
     if (game.phase === 'prompt') {
-      // Fill in blank answers for players who didn't submit
+      const answered = Object.keys(game.answers).length;
+      const total = Object.keys(game.players).length;
+      console.log(`[ROUND ${game.round}] TIMER EXPIRED — ${answered}/${total} answered, auto-advancing to vote`);
       for (const id of Object.keys(game.players)) {
         if (!game.answers[id]) {
           game.answers[id] = '(no answer)';
@@ -90,6 +94,8 @@ function startRound(game, pickPrompt, io) {
       }
       io.emit('sound', 'times-up');
       startVoting(game, io);
+    } else {
+      console.log(`[ROUND ${game.round}] TIMER EXPIRED but phase is '${game.phase}', ignoring`);
     }
   }, (game.customSettings.roundTime + 1) * 1000);
 }
@@ -109,6 +115,9 @@ function checkAllAnswered(game) {
 function startVoting(game, io) {
   clearTimeout(game.roundTimer);
   game.phase = 'vote';
+  const answerCount = Object.keys(game.answers).length;
+  const guessCount = Object.keys(game.guesses).length;
+  console.log(`[ROUND ${game.round}] VOTE START — answers=${answerCount}, guesses=${guessCount}, players=${Object.keys(game.players).length}`);
   io.emit('sound', 'vote-open');
 
   // Remove answers from players who disconnected
@@ -216,6 +225,7 @@ function checkAllVoted(game) {
 function tallyAndShowResults(game, io, scoreRound) {
   clearTimeout(game.roundTimer);
   game.phase = 'results';
+  console.log(`[ROUND ${game.round}] RESULTS — votes=${Object.keys(game.votes).length}, players=${Object.keys(game.players).length}`);
   io.emit('sound', 'vote-close');
 
   // Count votes per answer

@@ -15,6 +15,9 @@
     <p style="color:#888; margin-top:1rem;">👉 Go to <a href="/" style="color:#506be6;">the landing page</a> to create a room first.</p>
   </div>
 
+  <!-- End Game floating button (visible during active game) -->
+  <button id="btn-end-game" class="floating-end-btn hidden" aria-label="End game">✕ End Game</button>
+
   <!-- LOBBY -->
   <div id="screen-lobby" class="tv-container">
     <h1>Headley Party Games</h1>
@@ -874,6 +877,23 @@
 
     document.getElementById('btn-again').addEventListener('click', () => {
       socket.emit('play-again');
+    });
+
+    // End Game button
+    const endGameBtn = document.getElementById('btn-end-game');
+    endGameBtn.addEventListener('click', () => {
+      if (confirm('End the game and return to lobby?')) {
+        socket.emit('end-game');
+      }
+    });
+
+    // Show/hide end game button based on phase
+    socket.on('phase', (data) => {
+      if (data.phase === 'lobby' || data.phase === 'gameover' || data.phase === 'nf-gameover') {
+        endGameBtn.classList.add('hidden');
+      } else {
+        endGameBtn.classList.remove('hidden');
+      }
     });
 
     // Teams

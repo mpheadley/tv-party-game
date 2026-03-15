@@ -37,8 +37,103 @@ const BOT_ANSWERS = {
   ],
 };
 
-// Tiny 1x1 white PNG as base64 for speed drawing submissions
-const TINY_DRAWING = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+/**
+ * Generate a simple bot drawing as a PNG data URL.
+ * Creates a small solid-color PNG using raw zlib-compressed data.
+ * The validation requires 'data:image/png;base64,' format.
+ */
+const zlib = require('zlib');
+
+function generateBotDrawing() {
+  const width = 200;
+  const height = 200;
+  const colors = [
+    [255, 100, 100], // red
+    [100, 100, 255], // blue
+    [100, 200, 100], // green
+    [180, 100, 255], // purple
+    [255, 180, 50],  // orange
+    [255, 200, 100], // yellow
+  ];
+  const bg = [255, 255, 255];
+  const fg = pickRandom(colors);
+
+  // Build raw pixel data (filter byte + RGB per pixel, per row)
+  const rawData = Buffer.alloc((width * 3 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * (width * 3 + 1);
+    rawData[rowOffset] = 0; // no filter
+    for (let x = 0; x < width; x++) {
+      const px = rowOffset + 1 + x * 3;
+      // Draw a simple pattern: border + diagonal cross + circle
+      const inBorder = x < 4 || x >= width - 4 || y < 4 || y >= height - 4;
+      const cx = width / 2, cy = height / 2;
+      const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+      const onCircle = Math.abs(dist - 60) < 3;
+      const onCross = Math.abs(x - y) < 3 || Math.abs(x - (height - y)) < 3;
+      const onDot = dist < 10;
+
+      if (inBorder || onCircle || onCross || onDot) {
+        rawData[px] = fg[0];
+        rawData[px + 1] = fg[1];
+        rawData[px + 2] = fg[2];
+      } else {
+        rawData[px] = bg[0];
+        rawData[px + 1] = bg[1];
+        rawData[px + 2] = bg[2];
+      }
+    }
+  }
+
+  // Build PNG file
+  const deflated = zlib.deflateSync(rawData);
+  const png = buildPNG(width, height, deflated);
+  return 'data:image/png;base64,' + png.toString('base64');
+}
+
+function buildPNG(width, height, deflatedData) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+
+  // IHDR chunk
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(width, 0);
+  ihdrData.writeUInt32BE(height, 4);
+  ihdrData[8] = 8;  // bit depth
+  ihdrData[9] = 2;  // color type: RGB
+  ihdrData[10] = 0; // compression
+  ihdrData[11] = 0; // filter
+  ihdrData[12] = 0; // interlace
+  const ihdr = makeChunk('IHDR', ihdrData);
+
+  // IDAT chunk
+  const idat = makeChunk('IDAT', deflatedData);
+
+  // IEND chunk
+  const iend = makeChunk('IEND', Buffer.alloc(0));
+
+  return Buffer.concat([signature, ihdr, idat, iend]);
+}
+
+function makeChunk(type, data) {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const typeBuffer = Buffer.from(type, 'ascii');
+  const crcInput = Buffer.concat([typeBuffer, data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(crcInput), 0);
+  return Buffer.concat([length, typeBuffer, data, crc]);
+}
+
+function crc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i];
+    for (let j = 0; j < 8; j++) {
+      c = (c >>> 1) ^ (c & 1 ? 0xEDB88320 : 0);
+    }
+  }
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
 
 function randomDelay(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -170,7 +265,7 @@ function handlePrompt(socket, name, gameMode, isDrawer, data) {
     if (gameMode === 'pictionary') {
       if (isDrawer) {
         // Drawer submits a drawing — in real game this streams, but bots just submit
-        socket.emit('answer', TINY_DRAWING);
+        socket.emit('answer', generateBotDrawing());
         console.log(`[BOT] ${name} submitted drawing (pictionary drawer)`);
       } else {
         // Guessers submit text guesses
@@ -183,7 +278,7 @@ function handlePrompt(socket, name, gameMode, isDrawer, data) {
         console.log(`[BOT] ${name} guessed (pictionary)`);
       }
     } else if (gameMode === 'speed-drawing') {
-      socket.emit('answer', TINY_DRAWING);
+      socket.emit('answer', generateBotDrawing());
       console.log(`[BOT] ${name} submitted drawing (speed drawing)`);
     } else {
       // Hot Take — text answer

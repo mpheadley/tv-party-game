@@ -151,9 +151,15 @@
     Object.values(screens).forEach(s => s.classList.add('hidden'));
     screens[name].classList.remove('hidden');
 
-    const hideOnScreens = ['join', 'teamSelect', 'waiting'];
+    const hideOnScreens = ['join', 'teamSelect', 'reconnect'];
     if (roomCode) {
       floatingBadge.style.display = hideOnScreens.includes(name) ? 'none' : 'block';
+    }
+
+    // Show exit button during active game, hide on join/reconnect
+    const exitBtn = document.getElementById('btn-exit-game');
+    if (exitBtn) {
+      exitBtn.classList.toggle('hidden', hideOnScreens.includes(name));
     }
 
     const modeIndicator = document.getElementById('screen-mode-indicator');
@@ -1247,6 +1253,22 @@
 
   document.getElementById('btn-host-again').addEventListener('click', () => {
     socket.emit('play-again');
+  });
+
+  // Exit Game
+  document.getElementById('btn-exit-game').addEventListener('click', () => {
+    if (confirm('Leave the game?')) {
+      socket.emit('leave-game');
+    }
+  });
+
+  socket.on('left-game', () => {
+    sessionStorage.removeItem('hottake-token');
+    myToken = null;
+    isHost = false;
+    hasSubmitted = false;
+    clearInterval(phoneTimer);
+    showScreen('join');
   });
 
   // ── Helpers ──

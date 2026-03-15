@@ -1026,6 +1026,56 @@ io.on('connection', (socket) => {
     });
   });
 
+  // End game (TV/host force-ends the game mid-round, back to lobby)
+  socket.on('end-game', () => {
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (room.phase === 'lobby') return;
+    console.log(`[GAME] END GAME forced by ${socket.id === room.tvSocket ? 'TV' : 'host'} in room ${socketRoom}`);
+    gameLogic.resetGame(room, room.playersByToken);
+    room.nfState = null;
+    emitToRoom(room, 'phase', { phase: 'lobby' });
+    emitToRoom(room, 'player-update', getPlayerList(room));
+  });
+
+  // Player leaves game (back to join screen)
+  socket.on('leave-game', () => {
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (!player) return;
+    console.log(`[GAME] ${player.avatar} ${player.name} left room ${socketRoom}`);
+
+    // Remove from active players
+    const token = player.token;
+    delete room.players[socket.id];
+    if (token && room.playersByToken[token]) {
+      delete room.playersByToken[token];
+      delete tokenToRoom[token];
+    }
+
+    // Transfer host if needed
+    if (socket.id === room.hostSocket) {
+      const remainingIds = Object.keys(room.players);
+      if (remainingIds.length > 0) {
+        room.hostSocket = remainingIds[0];
+        io.to(room.hostSocket).emit('host-assigned');
+      } else {
+        room.hostSocket = null;
+      }
+    }
+
+    emitToRoom(room, 'player-update', getPlayerList(room));
+    socket.emit('left-game');
+    socketRoom = null;
+
+    // Schedule cleanup if empty
+    if (Object.keys(room.players).length === 0 && !room.tvSocket) {
+      scheduleRoomCleanup(room.code);
+    }
+  });
+
   // Play again
   socket.on('play-again', () => {
     const room = getRoom(socketRoom);

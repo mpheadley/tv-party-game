@@ -106,7 +106,12 @@ function scheduleRoomCleanup(code) {
 
 app.post('/api/create-room', (req, res) => {
   const code = generateRoomCode();
-  createRoom(code);
+  const room = createRoom(code);
+  // Test mode: skip player minimums (pass ?test=1 from client)
+  if (req.query.test === '1') {
+    room.testMode = true;
+    console.log(`Room ${code} created in TEST MODE (no player minimums)`);
+  }
   res.json({ code });
 });
 
@@ -222,6 +227,7 @@ io.on('connection', (socket) => {
       qrDataUrl,
       roomCode: room.code,
       customPrompts: room.customPrompts,
+      testMode: room.testMode || false,
       settings: {
         roundTime: room.customSettings.roundTime,
         voteTime: room.customSettings.voteTime,
@@ -378,7 +384,7 @@ io.on('connection', (socket) => {
     const isHost = !room.hostSocket;
     if (isHost) room.hostSocket = socket.id;
 
-    socket.emit('joined', { name: cleanName, avatar, isHost, token, team: assignedTeam, roomCode: room.code });
+    socket.emit('joined', { name: cleanName, avatar, isHost, token, team: assignedTeam, roomCode: room.code, testMode: room.testMode || false });
     emitToRoom(room, 'player-update', getPlayerList(room));
     emitToRoom(room, 'sound', 'join');
     console.log(`${avatar} ${cleanName} joined room ${roomCode}${isHost ? ' (host)' : ''}${assignedTeam ? ` (${room.teams[assignedTeam]?.name})` : ''}`);
@@ -493,10 +499,11 @@ io.on('connection', (socket) => {
     if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
 
     const playerCount = Object.keys(room.players).length;
+    const testMode = room.testMode || false;
 
-    // Night Falls requires 5+ players
+    // Night Falls requires 5+ players (unless test mode)
     if (room.gameMode === 'night-falls') {
-      if (playerCount < 5) {
+      if (!testMode && playerCount < 5) {
         socket.emit('error-msg', 'Night Falls needs at least 5 players!');
         return;
       }
@@ -508,8 +515,8 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Other modes: 3+ players
-    if (playerCount < 3) {
+    // Other modes: 3+ players (unless test mode)
+    if (!testMode && playerCount < 3) {
       socket.emit('error-msg', 'Need at least 3 players!');
       return;
     }
@@ -547,7 +554,21 @@ io.on('connection', (socket) => {
     if (room.phase !== 'prompt') return;
 
     if (room.gameMode === 'pictionary') {
-      if (socket.id === room.currentDrawer) return;
+      // In test mode, drawer submits drawing → store it and auto-advance
+      if (socket.id === room.currentDrawer) {
+        if (!room.testMode) return;
+        room.drawings[socket.id] = data;
+        socket.emit('answer-received');
+        clearTimeout(room.roundTimer);
+        const roomIo = createRoomEmitter(room);
+        // In test mode with 1 player, skip voting (no guessers) and go to results
+        if (Object.keys(room.players).length <= 1) {
+          gameLogic.tallyAndShowResults(room, roomIo);
+        } else {
+          gameLogic.startVoting(room, roomIo);
+        }
+        return;
+      }
       if (room.guesses[socket.id]) return;
 
       const guess = pictionaryMode.validateGuess(data);

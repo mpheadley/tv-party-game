@@ -203,7 +203,7 @@
       <p style="opacity:0.7;">Play solo or on teams</p>
 
       <div style="margin:2rem 0;">
-        <label style="display:flex; align-items:center; gap:1rem; cursor:pointer; padding:1rem; background:#f9f9f9; border-radius:0.5rem; margin-bottom:1rem;">
+        <label style="display:flex; align-items:center; gap:1rem; cursor:pointer; padding:1rem; background:#1a1a2e; border:1px solid #333; border-radius:0.5rem; margin-bottom:1rem; color:#e8e8e8;">
           <input type="radio" name="game-mode" value="solo" checked style="cursor:pointer;">
           <span>
             <strong>Solo Mode</strong>
@@ -211,7 +211,7 @@
           </span>
         </label>
 
-        <label style="display:flex; align-items:center; gap:1rem; cursor:pointer; padding:1rem; background:#f9f9f9; border-radius:0.5rem;">
+        <label style="display:flex; align-items:center; gap:1rem; cursor:pointer; padding:1rem; background:#1a1a2e; border:1px solid #333; border-radius:0.5rem; color:#e8e8e8;">
           <input type="radio" name="game-mode" value="teams" style="cursor:pointer;">
           <span>
             <strong>Team Mode</strong>
@@ -623,9 +623,12 @@
     });
 
     // Initial state
+    let isTestMode = false;
+
     socket.on('game-state', (data) => {
       const url = `${window.location.origin}/phone.html?room=${roomCode}`;
       document.getElementById('join-url').textContent = url;
+      if (data.testMode) isTestMode = true;
 
       // QR code generated server-side
       const qrDiv = document.getElementById('qr-code');
@@ -654,10 +657,13 @@
       ).join('');
 
       const btn = document.getElementById('btn-start');
-      const minPlayers = currentGameMode === 'night-falls' ? 5 : 3;
+      const minPlayers = isTestMode ? 1 : (currentGameMode === 'night-falls' ? 5 : 3);
       btn.disabled = players.length < minPlayers;
 
-      if (currentGameMode === 'night-falls') {
+      if (isTestMode) {
+        document.getElementById('lobby-status').textContent =
+          `🧪 TEST MODE — ${players.length} player(s) ready!`;
+      } else if (currentGameMode === 'night-falls') {
         document.getElementById('lobby-status').textContent =
           players.length < 5
             ? `⏳ Need at least 5 players (${players.length} joined)`
@@ -757,14 +763,14 @@
 
             // Show guesses as a list (will be replaced with approval buttons)
             const guessesList = data.answers.slice(1).map((a, i) =>
-              `<div class="guess-item" data-index="${i}" style="padding:1rem; background:#f9f9f9; border-radius:0.5rem; margin:0.5rem 0; cursor:pointer; transition:all 0.2s;">
+              `<div class="guess-item" data-index="${i}" style="padding:1rem; background:#2a2a3e; border:1px solid #444; border-radius:0.5rem; margin:0.5rem 0; cursor:pointer; transition:all 0.2s; color:#e8e8e8;">
                 <strong>${escapeHtml(a.text)}</strong>
               </div>`
             ).join('');
 
             grid.innerHTML = drawingHtml + `
-              <div style="background:#f0f0f0; padding:2rem; border-radius:0.5rem;">
-                <p style="margin:0 0 1rem; font-weight:bold;">Guesses to review:</p>
+              <div style="background:#1a1a2e; border:1px solid #333; padding:2rem; border-radius:0.5rem;">
+                <p style="margin:0 0 1rem; font-weight:bold; color:#e8e8e8;">Guesses to review:</p>
                 ${guessesList}
               </div>
             `;
@@ -1072,9 +1078,12 @@
         if (teamsBtn) teamsBtn.style.display = 'none';
         // Update min player requirement
         const players = document.querySelectorAll('.player-card');
-        startBtn.disabled = players.length < 5;
+        const nfMin = isTestMode ? 1 : 5;
+        startBtn.disabled = players.length < nfMin;
         document.getElementById('lobby-status').textContent =
-          players.length < 5
+          isTestMode
+            ? `🧪 TEST MODE — ${players.length} player(s) ready!`
+            : players.length < 5
             ? `⏳ Need at least 5 players (${players.length} joined)`
             : `🐺 ${players.length} players ready for Night Falls!`;
       } else {

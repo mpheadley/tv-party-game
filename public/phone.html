@@ -65,9 +65,9 @@
 
   <!-- WAITING IN LOBBY -->
   <div id="screen-waiting" class="phone-container hidden">
-    <div id="game-mode-indicator" style="text-align:center; margin-bottom:1rem; padding:0.5rem; background:#f0f0f0; border-radius:0.5rem;">
-      <p style="margin:0; opacity:0.7; font-size:0.9rem;">Game Mode</p>
-      <p id="current-mode-display" style="margin:0.5rem 0 0; font-size:1.2rem; font-weight:bold;">🔥 Hot Take</p>
+    <div id="game-mode-indicator" style="text-align:center; margin-bottom:1rem; padding:0.5rem; background:#1a1a2e; border:1px solid #333; border-radius:0.5rem;">
+      <p style="margin:0; opacity:0.7; font-size:0.9rem; color:#ccc;">Game Mode</p>
+      <p id="current-mode-display" style="margin:0.5rem 0 0; font-size:1.2rem; font-weight:bold; color:#e8e8e8;">🔥 Hot Take</p>
     </div>
     <div class="phone-avatar" id="my-avatar"></div>
     <h1>🎉 You're In!</h1>
@@ -140,6 +140,7 @@
   <!-- ANSWER PROMPT (Drawing) -->
   <div id="screen-draw" class="phone-container hidden">
     <p class="phone-prompt" id="draw-prompt"></p>
+    <div class="phone-timer-bar"><div class="phone-timer-fill" id="draw-timer-fill"></div></div>
     <div class="phone-timer" id="draw-timer"></div>
     <div class="drawing-tools">
       <div class="drawing-tool-group">
@@ -304,6 +305,7 @@
     let phoneTimer = null;
     let hasSubmitted = false;
     let isHost = false;
+    let isTestMode = false;
     let myToken = sessionStorage.getItem('hottake-token');
     let currentGameMode = 'hot-take';
 
@@ -622,8 +624,10 @@
 
       // Set canvas size to container
       const container = drawingCanvas.parentElement;
-      drawingCanvas.width = Math.min(400, container.clientWidth - 20);
-      drawingCanvas.height = 400;
+      const canvasWidth = Math.min(400, container.clientWidth - 20);
+      const maxHeight = Math.min(400, window.innerHeight - 320);
+      drawingCanvas.width = canvasWidth;
+      drawingCanvas.height = Math.max(200, maxHeight);
 
       drawingCtx = drawingCanvas.getContext('2d');
       drawingCtx.fillStyle = 'white';
@@ -965,6 +969,7 @@
 
     socket.on('joined', (data) => {
       myToken = data.token;
+      if (data.testMode) isTestMode = true;
       sessionStorage.setItem('hottake-token', data.token);
       document.getElementById('waiting-name').textContent = `Welcome, ${data.name}!`;
       document.getElementById('my-avatar').textContent = data.avatar;
@@ -1070,6 +1075,36 @@
               initDrawingCanvas();
               document.getElementById('draw-prompt').textContent = `Draw: ${data.prompt}`;
               document.getElementById('btn-submit-drawing').disabled = false;
+
+              // Pictionary drawing timer
+              if (data.timeLimit) {
+                let drawTimeLeft = data.timeLimit;
+                const drawTimerEl = document.getElementById('draw-timer');
+                const drawTimerFill = document.getElementById('draw-timer-fill');
+                drawTimerEl.textContent = drawTimeLeft + 's';
+                drawTimerEl.classList.remove('timer-urgent');
+                if (drawTimerFill) {
+                  drawTimerFill.style.transition = 'none';
+                  drawTimerFill.style.width = '100%';
+                  requestAnimationFrame(() => {
+                    drawTimerFill.style.transition = `width ${data.timeLimit}s linear`;
+                    drawTimerFill.style.width = '0%';
+                  });
+                }
+                clearInterval(phoneTimer);
+                phoneTimer = setInterval(() => {
+                  drawTimeLeft--;
+                  drawTimerEl.textContent = Math.max(0, drawTimeLeft) + 's';
+                  if (drawTimeLeft <= 10) {
+                    drawTimerEl.classList.add('timer-urgent');
+                    if (drawTimeLeft > 0) {
+                      vibrate(50);
+                      playSound('tick');
+                    }
+                  }
+                  if (drawTimeLeft <= 0) clearInterval(phoneTimer);
+                }, 1000);
+              }
             } else {
               // You're guessing
               showScreen('guess');
@@ -1082,6 +1117,39 @@
             initDrawingCanvas();
             document.getElementById('draw-prompt').textContent = data.prompt;
             document.getElementById('btn-submit-drawing').disabled = false;
+
+            // Drawing timer with countdown ticks
+            if (data.timeLimit) {
+              let drawTimeLeft = data.timeLimit;
+              const drawTimerEl = document.getElementById('draw-timer');
+              const drawTimerFill = document.getElementById('draw-timer-fill');
+              drawTimerEl.textContent = drawTimeLeft + 's';
+              drawTimerEl.classList.remove('timer-urgent');
+              if (drawTimerFill) {
+                drawTimerFill.style.transition = 'none';
+                drawTimerFill.style.width = '100%';
+                requestAnimationFrame(() => {
+                  drawTimerFill.style.transition = `width ${data.timeLimit}s linear`;
+                  drawTimerFill.style.width = '0%';
+                });
+              }
+              clearInterval(phoneTimer);
+              phoneTimer = setInterval(() => {
+                drawTimeLeft--;
+                drawTimerEl.textContent = Math.max(0, drawTimeLeft) + 's';
+                if (drawTimeLeft <= 10) {
+                  drawTimerEl.classList.add('timer-urgent');
+                  if (drawTimeLeft > 0) {
+                    vibrate(50);
+                    playSound('tick');
+                  }
+                }
+                if (drawTimeLeft <= 0) {
+                  clearInterval(phoneTimer);
+                  if (!hasSubmitted) submitDrawing();
+                }
+              }, 1000);
+            }
           } else {
             showScreen('answer');
             document.getElementById('phone-prompt').textContent = data.prompt;
@@ -1142,8 +1210,8 @@
             // Render guesses for drawer to approve/reject
             const guessesDiv = document.getElementById('pictionary-guesses');
             guessesDiv.innerHTML = data.answers.map((a, i) =>
-              `<div class="guess-approval" data-guesser-id="${a.id}" style="display:flex; gap:1rem; padding:1rem; background:#f9f9f9; border-radius:0.5rem; margin:0.5rem 0; align-items:center;">
-                <span style="flex:1; font-weight:bold;">${escapeHtml(a.text)}</span>
+              `<div class="guess-approval" data-guesser-id="${a.id}" style="display:flex; gap:1rem; padding:1rem; background:#1a1a2e; border:1px solid #333; border-radius:0.5rem; margin:0.5rem 0; align-items:center;">
+                <span style="flex:1; font-weight:bold; color:#e8e8e8;">${escapeHtml(a.text)}</span>
                 <button class="btn-approve" style="background:#4CAF50; color:white; border:none; padding:0.5rem 1rem; border-radius:0.3rem; cursor:pointer;">✓ Yes</button>
                 <button class="btn-reject" style="background:#f44336; color:white; border:none; padding:0.5rem 1rem; border-radius:0.3rem; cursor:pointer;">✗ No</button>
               </div>`
@@ -1180,10 +1248,20 @@
           document.getElementById('vote-prompt-reminder').textContent = data.prompt || '';
           const options = document.getElementById('vote-options');
           // Server already filtered out our own answer
-          options.innerHTML = data.answers
-            .map(a =>
-              `<button class="vote-btn" data-id="${a.id}">${escapeHtml(a.text)}</button>`
-            ).join('');
+          const isDrawingMode = data.answers.length > 0 && data.answers[0].text.startsWith('data:image');
+          if (isDrawingMode) {
+            options.innerHTML = data.answers
+              .map(a =>
+                `<button class="vote-btn vote-btn-drawing" data-id="${a.id}">
+                  <img src="${a.text}" alt="Drawing" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">
+                </button>`
+              ).join('');
+          } else {
+            options.innerHTML = data.answers
+              .map(a =>
+                `<button class="vote-btn" data-id="${a.id}">${escapeHtml(a.text)}</button>`
+              ).join('');
+          }
 
           // Vote countdown on phone
           if (data.timeLimit) {
@@ -1228,23 +1306,38 @@
 
           // Phone-only: reveal cards with staggered animation
           const revealCards = document.getElementById('phone-reveal-cards');
+          const isDrawingResults = data.results.some(r => r.text && r.text.startsWith('data:image'));
           if (revealCards) {
-            revealCards.innerHTML = data.results.map((r, i) =>
-              `<div class="phone-reveal-card" style="animation-delay: ${i * 0.3}s">
-                <div class="phone-reveal-text">"${escapeHtml(r.text)}"</div>
-                <div class="phone-reveal-meta">${r.avatar} ${escapeHtml(r.author)} — ${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
-              </div>`
-            ).join('');
+            revealCards.innerHTML = data.results.map((r, i) => {
+              const isImage = r.text && r.text.startsWith('data:image');
+              const metaLine = r.isDrawing
+                ? `<div class="phone-reveal-meta">${r.avatar} ${escapeHtml(r.author)} — 🎨 The Drawing</div>`
+                : `<div class="phone-reveal-meta">${r.avatar} ${escapeHtml(r.author)} — ${'⭐'.repeat(Math.max(0, r.votes))}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>`;
+              return `<div class="phone-reveal-card" style="animation-delay: ${i * 0.3}s">
+                ${isImage
+                  ? `<img src="${r.text}" alt="Drawing" style="max-width:100%; height:auto; border-radius:0.5rem; margin-bottom:0.5rem;">`
+                  : `<div class="phone-reveal-text">"${escapeHtml(r.text)}"</div>`
+                }
+                ${metaLine}
+              </div>`;
+            }).join('');
           }
 
           // Show results on phone
           const resultsEl = document.getElementById('phone-results');
-          resultsEl.innerHTML = data.results.map(r =>
-            `<div class="phone-result-card">
-              <div class="phone-result-text">"${escapeHtml(r.text)}"</div>
-              <div class="phone-result-meta">${r.avatar} ${escapeHtml(r.author)} — ${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
-            </div>`
-          ).join('');
+          resultsEl.innerHTML = data.results.map(r => {
+            const isImage = r.text && r.text.startsWith('data:image');
+            const metaLine = r.isDrawing
+              ? `<div class="phone-result-meta">${r.avatar} ${escapeHtml(r.author)} — 🎨 The Drawing</div>`
+              : `<div class="phone-result-meta">${r.avatar} ${escapeHtml(r.author)} — ${'⭐'.repeat(Math.max(0, r.votes))}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>`;
+            return `<div class="phone-result-card">
+              ${isImage
+                ? `<img src="${r.text}" alt="Drawing" style="max-width:100%; height:auto; border-radius:0.5rem; margin-bottom:0.5rem;">`
+                : `<div class="phone-result-text">"${escapeHtml(r.text)}"</div>`
+              }
+              ${metaLine}
+            </div>`;
+          }).join('');
 
           const myScore = data.scoreboard.find(p => p.id === myId);
           document.getElementById('phone-score').textContent =
@@ -1793,11 +1886,15 @@
       }
 
       // Host: update start button
-      if (!isHost) return;
+      if (!isHost) { console.log('player-update: not host, skipping start btn'); return; }
       const btn = document.getElementById('btn-host-start');
-      const minPlayers = currentGameMode === 'night-falls' ? 5 : 3;
+      const minPlayers = isTestMode ? 1 : (currentGameMode === 'night-falls' ? 5 : 3);
+      console.log('player-update:', { isHost, isTestMode, currentGameMode, minPlayers, playerCount: players.length, disabled: players.length < minPlayers });
       btn.disabled = players.length < minPlayers;
-      if (currentGameMode === 'night-falls') {
+      if (isTestMode) {
+        document.getElementById('host-lobby-status').textContent =
+          `🧪 TEST MODE — ${players.length} player(s) ready!`;
+      } else if (currentGameMode === 'night-falls') {
         document.getElementById('host-lobby-status').textContent =
           players.length < 5
             ? `Need at least 5 players (${players.length} joined)`

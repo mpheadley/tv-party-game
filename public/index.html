@@ -102,6 +102,7 @@
 
   <script>
     const codeInput = document.getElementById('join-code-input');
+    const isTestMode = new URLSearchParams(window.location.search).has('test');
 
     // Auto-uppercase the room code input
     codeInput.addEventListener('input', () => {
@@ -114,7 +115,8 @@
       btn.disabled = true;
       btn.textContent = '⏳ Creating...';
       try {
-        const res = await fetch('/api/create-room', { method: 'POST' });
+        const url = isTestMode ? '/api/create-room?test=1' : '/api/create-room';
+        const res = await fetch(url, { method: 'POST' });
         const data = await res.json();
         if (data.code) {
           window.location.href = `/phone.html?room=${data.code}`;

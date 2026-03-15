@@ -121,11 +121,17 @@ function startVoting(game, io) {
     .map(([id, text]) => ({ id, text }))
     .sort(() => Math.random() - 0.5);
 
-  // Send TV the full list
+  // Send TV the full list (for pictionary, send guesses instead of drawing data)
   if (game.tvSocket) {
+    let tvAnswers = answerList;
+    if (game.gameMode === 'pictionary') {
+      tvAnswers = Object.entries(game.guesses)
+        .map(([id, text]) => ({ id, text }))
+        .sort(() => Math.random() - 0.5);
+    }
     io.to(game.tvSocket).emit('phase', {
       phase: 'vote',
-      answers: answerList,
+      answers: tvAnswers,
       prompt: game.currentPrompt,
       gameMode: game.gameMode,
       currentDrawer: game.currentDrawer,
@@ -149,10 +155,13 @@ function startVoting(game, io) {
     };
 
     if (game.gameMode === 'pictionary') {
-      // In pictionary, drawer sees guesses, others see drawing
+      // In pictionary, drawer sees guesses (from game.guesses), others wait
       if (playerId === game.currentDrawer) {
-        // Drawer votes on guesses
-        payload.answers = answerList;
+        // Drawer votes on guesses — use guesses, not answers (answers has drawing data)
+        const guessList = Object.entries(game.guesses)
+          .map(([id, text]) => ({ id, text }))
+          .sort(() => Math.random() - 0.5);
+        payload.answers = guessList;
       } else {
         // Others see the drawing being drawn (during voting = results phase for them)
         payload.answers = []; // They don't vote, just wait
@@ -164,6 +173,14 @@ function startVoting(game, io) {
     }
 
     io.to(playerId).emit('phase', payload);
+  }
+
+  // Test mode with 1 player: skip voting and go straight to results
+  if (game.testMode && Object.keys(game.players).length <= 1) {
+    game.roundTimer = setTimeout(() => {
+      if (game.phase === 'vote') tallyAndShowResults(game, io);
+    }, 2000);
+    return;
   }
 
   // Auto-advance voting after timeout
@@ -219,13 +236,29 @@ function tallyAndShowResults(game, io, scoreRound) {
     }
   }
 
-  // Build results
-  const results = Object.entries(game.answers).map(([id, text]) => ({
+  // Build results (for pictionary, show guesses + the drawing)
+  let resultsSource = game.answers;
+  if (game.gameMode === 'pictionary') {
+    resultsSource = game.guesses;
+  }
+  const results = Object.entries(resultsSource).map(([id, text]) => ({
     text,
     author: game.players[id]?.name || 'Unknown',
     avatar: game.players[id]?.avatar || '',
     votes: voteCounts[id] || 0,
   })).sort((a, b) => b.votes - a.votes);
+
+  // For pictionary, include the drawing in the payload
+  if (game.gameMode === 'pictionary' && game.currentDrawer && game.drawings[game.currentDrawer]) {
+    // Add drawing as a special result entry so it displays on results screen
+    results.unshift({
+      text: game.drawings[game.currentDrawer],
+      author: game.players[game.currentDrawer]?.name || 'Unknown',
+      avatar: game.players[game.currentDrawer]?.avatar || '',
+      votes: 0,
+      isDrawing: true,
+    });
+  }
 
   const scoreboard = Object.entries(game.players)
     .map(([id, p]) => ({ id, name: p.name, score: p.score, avatar: p.avatar }))

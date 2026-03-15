@@ -471,6 +471,12 @@ body {
   background: #16213e;
 }
 
+.vote-btn-drawing {
+  padding: 0.5rem;
+  height: 200px;
+  overflow: hidden;
+}
+
 .waiting-msg {
   font-size: 1.3rem;
   color: #506be6;
@@ -602,6 +608,21 @@ body {
   opacity: 0.5;
   cursor: default;
 }
+
+.btn-submit {
+  background: linear-gradient(135deg, #506be6, #764ba2);
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  font-size: 1.2rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: transform 0.2s;
+}
+
+.btn-submit:hover { transform: scale(1.02); }
+.btn-submit:disabled { opacity: 0.5; cursor: default; transform: none; }
 
 /* Emoji picker */
 .emoji-label {
@@ -783,6 +804,7 @@ body {
   border: 2px solid;
   border-radius: 0.75rem;
   background: white;
+  color: #1a1a2e;
   cursor: pointer;
   font-size: 1rem;
   transition: transform 0.2s, box-shadow 0.2s;
@@ -855,8 +877,9 @@ body {
 
 .tool-button {
   padding: 0.5rem 1rem;
-  background: #f0f0f0;
-  border: 2px solid #ddd;
+  background: #2a2a3e;
+  border: 2px solid #444;
+  color: #e8e8e8;
   border-radius: 0.4rem;
   cursor: pointer;
   font-size: 0.9rem;
@@ -884,8 +907,8 @@ body {
 }
 
 #color-picker {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: none;
   border-radius: 0.4rem;
   cursor: pointer;

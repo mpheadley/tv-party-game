@@ -1060,6 +1060,332 @@ button:active {
   }
 }
 
+/* ── Landing Page ── */
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.landing-hero h1 {
+  font-size: 3.5rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.landing-tagline {
+  font-size: 1.3rem;
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+.landing-actions {
+  width: 100%;
+  max-width: 360px;
+  margin-bottom: 3rem;
+}
+
+.landing-btn {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.3rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: transform 0.2s;
+}
+
+.landing-btn:hover { transform: scale(1.02); }
+.landing-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.landing-btn-primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.landing-btn-secondary {
+  background: #1a1a2e;
+  border: 2px solid #667eea;
+  color: #667eea;
+  padding: 0.8rem;
+  font-size: 1.1rem;
+}
+
+.landing-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.landing-divider::before,
+.landing-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #333;
+}
+
+.landing-divider span {
+  padding: 0 1rem;
+}
+
+.landing-join-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.landing-code-input {
+  flex: 1;
+  background: #1a1a2e;
+  border: 2px solid #333;
+  color: #e8e8e8;
+  padding: 0.8rem;
+  font-size: 1.5rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3rem;
+  outline: none;
+  font-family: monospace;
+}
+
+.landing-code-input:focus { border-color: #667eea; }
+
+.landing-how, .landing-modes {
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 2.5rem;
+}
+
+.landing-how h2, .landing-modes h2 {
+  font-size: 1.5rem;
+  color: #ccc;
+  margin-bottom: 1.5rem;
+}
+
+.landing-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.landing-step {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+}
+
+.step-number {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.step-text {
+  font-size: 1rem;
+  color: #ccc;
+  line-height: 1.4;
+}
+
+.landing-mode-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.landing-mode-card {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.landing-mode-card .mode-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.landing-mode-card h3 {
+  font-size: 1.2rem;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.landing-mode-card p {
+  font-size: 0.9rem;
+  color: #888;
+  line-height: 1.4;
+}
+
+.landing-footer {
+  margin-top: auto;
+  padding-top: 2rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+/* ── Room Code Display ── */
+.room-code-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.room-code-value {
+  font-size: 4rem;
+  font-weight: bold;
+  letter-spacing: 0.5rem;
+  font-family: monospace;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.room-code-badge {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 0.3rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.9rem;
+  font-weight: bold;
+  letter-spacing: 0.15rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Phone Player List (lobby) ── */
+.phone-player-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 320px;
+}
+
+.phone-player-chip {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 2rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  animation: popIn 0.3s ease-out;
+}
+
+/* ── Phone Timer Bar ── */
+.phone-timer-bar {
+  width: 100%;
+  max-width: 320px;
+  height: 6px;
+  background: #1a1a2e;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.phone-timer-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 3px;
+  width: 100%;
+  transition: width 1s linear;
+}
+
+/* ── Phone Reveal Cards ── */
+.phone-reveal-cards {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.phone-reveal-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 2px solid #667eea;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  opacity: 0;
+  animation: revealCard 0.5s ease-out forwards;
+}
+
+.phone-reveal-text {
+  font-size: 1.1rem;
+  color: #e8e8e8;
+  margin-bottom: 0.3rem;
+}
+
+.phone-reveal-meta {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+/* ── Phone Winner Banner ── */
+.phone-winner-banner {
+  text-align: center;
+  margin: 0.5rem 0 1rem;
+  animation: bounceIn 0.6s ease-out;
+}
+
+.phone-winner-avatar {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.phone-winner-name {
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #ffd700, #ff9f43);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
+}
+
+/* ── Phone Confetti Canvas ── */
+#phone-confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+}
+
+/* ── TV Link ── */
+.tv-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #667eea;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  opacity: 0.7;
+}
+
+.tv-link:hover { opacity: 1; }
+
 /* Hidden utility */
 .hidden { display: none !important; }
 
@@ -1212,6 +1538,16 @@ button,
   .mode-button {
     padding: 0.5rem 0.75rem;
     font-size: 0.85rem;
+  }
+}
+
+/* Landing page responsive */
+@media (max-width: 500px) {
+  .landing-mode-cards {
+    grid-template-columns: 1fr;
+  }
+  .landing-hero h1 {
+    font-size: 2.5rem;
   }
 }
 

@@ -20,67 +20,116 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+app.use(express.json());
 app.use(express.static('public'));
 
-// Redirect root to TV page
-app.get('/', (req, res) => res.redirect('/tv.html'));
+// Root serves the landing page (index.html) via express.static — no redirect needed
 
 const AVATARS = [
   '🦊', '🐸', '🦉', '🐙', '🦄', '🐲', '🦋', '🐢',
   '🦁', '🐧', '🦖', '🐬', '🦩', '🐨', '🦝', '🐝',
 ];
 
-const RECONNECT_GRACE = 30000; // 30 seconds grace period for disconnected players
+const ROOM_CLEANUP_DELAY = 300000; // 5 minutes after empty before deleting room
 
-// Persistent player identity — survives reconnection
-// { token: { name, score, avatar, socketId, disconnectTimer } }
-let playersByToken = {};
+// ── Room Management ──
+const rooms = {};        // { roomCode: { room state } }
+const tokenToRoom = {};  // { token: roomCode }
 
-// Initialize reconnection manager for tracking disconnected players
-const reconnectionManager = new ReconnectionManager();
-
-let game = gameLogic.createGameState();
-
-// Load custom prompts from file
-let customPrompts = promptsModule.loadCustomPrompts();
-game.customSettings.customPromptList = customPrompts;
-
-// Helper functions
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // No I or O (ambiguous)
+  let code;
+  do {
+    code = '';
+    for (let i = 0; i < 4; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+  } while (rooms[code]);
+  return code;
+}
 
 function generateToken() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-// Migrate answers/votes from old socket ID to new one
-function migrateSocketId(oldId, newId) {
-  if (game.answers[oldId]) {
-    game.answers[newId] = game.answers[oldId];
-    delete game.answers[oldId];
-  }
-  if (game.votes[oldId]) {
-    game.votes[newId] = game.votes[oldId];
-    delete game.votes[oldId];
-  }
-  // Update votes that pointed to the old ID
-  for (const [voterId, answerId] of Object.entries(game.votes)) {
-    if (answerId === oldId) {
-      game.votes[voterId] = newId;
-    }
-  }
-  if (game.hostSocket === oldId) {
-    game.hostSocket = newId;
-  }
+function createRoom(code) {
+  const game = gameLogic.createGameState();
+  const customPrompts = promptsModule.loadCustomPrompts();
+  game.customSettings.customPromptList = customPrompts;
+
+  // Extend game state with room-specific fields
+  game.code = code;
+  game.playersByToken = {};   // { token: { name, score, avatar, socketId, disconnectTimer, sessionStartTime } }
+  game.cleanupTimer = null;
+  game.customPrompts = customPrompts;
+  game.reconnectionManager = new ReconnectionManager();
+
+  // Attach team scoreboard helper
+  game._getTeamScoreboard = () => teamsModule.getTeamScoreboard(game.teams);
+
+  rooms[code] = game;
+  console.log(`Room ${code} created`);
+  return game;
 }
 
-function getPlayerList() {
-  return Object.entries(game.players).map(([id, p]) => ({
+function getRoom(code) {
+  return rooms[code] || null;
+}
+
+function deleteRoom(code) {
+  const room = rooms[code];
+  if (!room) return;
+  clearTimeout(room.roundTimer);
+  clearTimeout(room.cleanupTimer);
+  if (room.reconnectionManager) room.reconnectionManager.destroy();
+  // Clean up token mappings
+  for (const token of Object.keys(room.playersByToken)) {
+    delete tokenToRoom[token];
+  }
+  delete rooms[code];
+  console.log(`Room ${code} deleted`);
+}
+
+function scheduleRoomCleanup(code) {
+  const room = rooms[code];
+  if (!room) return;
+  clearTimeout(room.cleanupTimer);
+  room.cleanupTimer = setTimeout(() => {
+    if (Object.keys(room.players).length === 0 && !room.tvSocket) {
+      deleteRoom(code);
+    }
+  }, ROOM_CLEANUP_DELAY);
+}
+
+// ── REST API Endpoints ──
+
+app.post('/api/create-room', (req, res) => {
+  const code = generateRoomCode();
+  createRoom(code);
+  res.json({ code });
+});
+
+app.get('/api/room/:code', (req, res) => {
+  const room = getRoom(req.params.code.toUpperCase());
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  res.json({
+    code: room.code,
+    phase: room.phase,
+    playerCount: Object.keys(room.players).length,
+  });
+});
+
+// ── Room Helper Functions ──
+
+function getPlayerList(room) {
+  return Object.entries(room.players).map(([id, p]) => ({
     id,
     name: p.name,
     score: p.score,
     avatar: p.avatar,
     team: p.team,
-    teamName: p.team && game.teams[p.team] ? game.teams[p.team].name : null,
-    teamColor: p.team && game.teams[p.team] ? game.teams[p.team].color : null,
+    teamName: p.team && room.teams[p.team] ? room.teams[p.team].name : null,
+    teamColor: p.team && room.teams[p.team] ? room.teams[p.team].color : null,
   }));
 }
 
@@ -96,58 +145,104 @@ function getLocalIP() {
   return 'localhost';
 }
 
-function pickAvatar() {
-  // Derive used avatars from current players — no stale state
-  const usedAvatars = Object.values(game.players).map(p => p.avatar);
+function pickAvatar(room) {
+  const usedAvatars = Object.values(room.players).map(p => p.avatar);
   const available = AVATARS.filter(a => !usedAvatars.includes(a));
   return available.length > 0
     ? available[Math.floor(Math.random() * available.length)]
     : AVATARS[Math.floor(Math.random() * AVATARS.length)];
 }
 
-function getTeamScoreboard() {
-  return teamsModule.getTeamScoreboard(game.teams);
+// Emit to all sockets in a room (TV + all players)
+function emitToRoom(room, event, data) {
+  if (room.tvSocket) {
+    io.to(room.tvSocket).emit(event, data);
+  }
+  for (const playerId of Object.keys(room.players)) {
+    io.to(playerId).emit(event, data);
+  }
 }
 
-// Attach helper to game object for use by game-logic
-game._getTeamScoreboard = getTeamScoreboard;
+function migrateSocketId(room, oldId, newId) {
+  if (room.answers[oldId]) {
+    room.answers[newId] = room.answers[oldId];
+    delete room.answers[oldId];
+  }
+  if (room.votes[oldId]) {
+    room.votes[newId] = room.votes[oldId];
+    delete room.votes[oldId];
+  }
+  for (const [voterId, answerId] of Object.entries(room.votes)) {
+    if (answerId === oldId) {
+      room.votes[voterId] = newId;
+    }
+  }
+  if (room.hostSocket === oldId) {
+    room.hostSocket = newId;
+  }
+}
 
 // ── Socket Handlers ──
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
+  // Track which room this socket belongs to
+  let socketRoom = null;
+
   // TV connects
-  socket.on('tv-connect', async (publicUrl) => {
-    game.tvSocket = socket.id;
-    // Generate QR code server-side — publicUrl comes from the browser's location.origin
+  socket.on('tv-connect', async (data) => {
+    // Support both old format (string publicUrl) and new format ({ roomCode, publicUrl })
+    const roomCode = typeof data === 'object' ? data.roomCode : null;
+    const publicUrl = typeof data === 'object' ? data.publicUrl : data;
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      socket.emit('error-msg', 'Room not found');
+      return;
+    }
+
+    socketRoom = roomCode;
+    room.tvSocket = socket.id;
+    clearTimeout(room.cleanupTimer);
+
     let qrDataUrl = null;
     if (publicUrl) {
       try {
-        const phoneUrl = publicUrl + '/phone.html';
+        const phoneUrl = publicUrl + '/phone.html?room=' + roomCode;
         qrDataUrl = await QRCode.toDataURL(phoneUrl, { width: 200, margin: 1 });
-      } catch (e) { /* QR generation failed, client will show URL only */ }
+      } catch (e) { /* QR generation failed */ }
     }
+
     socket.emit('game-state', {
-      phase: game.phase,
-      players: getPlayerList(),
+      phase: room.phase,
+      players: getPlayerList(room),
       ip: getLocalIP(),
       port: PORT,
       qrDataUrl,
-      customPrompts,
+      roomCode: room.code,
+      customPrompts: room.customPrompts,
       settings: {
-        roundTime: game.customSettings.roundTime,
-        voteTime: game.customSettings.voteTime,
-        totalRounds: game.customSettings.totalRounds,
-        estimatedDuration: settingsModule.getEstimatedDuration(game.customSettings),
+        roundTime: room.customSettings.roundTime,
+        voteTime: room.customSettings.voteTime,
+        totalRounds: room.customSettings.totalRounds,
+        estimatedDuration: settingsModule.getEstimatedDuration(room.customSettings),
       },
     });
   });
 
   // Player reconnects with token
-  socket.on('reconnect-attempt', (token) => {
-    const stored = playersByToken[token];
+  socket.on('reconnect-attempt', (data) => {
+    const token = typeof data === 'object' ? data.token : data;
+    const roomCode = typeof data === 'object' ? data.roomCode : tokenToRoom[token];
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      socket.emit('reconnect-failed');
+      return;
+    }
+
+    const stored = room.playersByToken[token];
     if (!stored) {
-      // Token not found — tell client to rejoin fresh
       socket.emit('reconnect-failed');
       return;
     }
@@ -157,426 +252,399 @@ io.on('connection', (socket) => {
       clearTimeout(stored.disconnectTimer);
       stored.disconnectTimer = null;
     }
+    if (room.reconnectionManager) {
+      room.reconnectionManager.cancelGracePeriod(token);
+    }
 
     const oldId = stored.socketId;
     const newId = socket.id;
 
-    // Remove ghost entry if old socket is still in players
-    if (oldId !== newId && game.players[oldId]) {
-      delete game.players[oldId];
+    // Remove ghost entry
+    if (oldId !== newId && room.players[oldId]) {
+      delete room.players[oldId];
     }
 
-    // Restore player with new socket ID
-    game.players[newId] = { name: stored.name, score: stored.score, avatar: stored.avatar, token };
+    // Restore player
+    room.players[newId] = { name: stored.name, score: stored.score, avatar: stored.avatar, token };
     stored.socketId = newId;
+    socketRoom = roomCode;
+    clearTimeout(room.cleanupTimer);
 
-    // Migrate answers, votes, and host reference
     if (oldId !== newId) {
-      migrateSocketId(oldId, newId);
+      migrateSocketId(room, oldId, newId);
     }
 
-    const isHost = game.hostSocket === newId;
+    const isHost = room.hostSocket === newId;
 
-    // Send current game state to the reconnected player
     socket.emit('reconnected', {
       name: stored.name,
       avatar: stored.avatar,
       score: stored.score,
       token,
       isHost,
-      phase: game.phase,
+      phase: room.phase,
+      roomCode: room.code,
     });
 
-    // Send them the current phase data so their screen updates
-    if (game.phase === 'prompt') {
-      const alreadyAnswered = !!game.answers[newId];
+    // Send current phase data
+    if (room.phase === 'prompt') {
+      const alreadyAnswered = !!room.answers[newId];
       socket.emit('phase', {
         phase: 'prompt',
-        prompt: game.currentPrompt,
-        round: game.round,
-        totalRounds: game.totalRounds,
-        timeLimit: ROUND_TIME,
+        prompt: room.currentPrompt,
+        gameMode: room.gameMode,
+        round: room.round,
+        totalRounds: room.totalRounds,
+        timeLimit: room.customSettings.roundTime,
       });
       if (alreadyAnswered) socket.emit('answer-received');
-    } else if (game.phase === 'vote') {
-      const answerList = Object.entries(game.answers)
+    } else if (room.phase === 'vote') {
+      const answerList = Object.entries(room.answers)
         .map(([id, text]) => ({ id, text }))
         .sort(() => Math.random() - 0.5);
       const filtered = answerList.filter(a => a.id !== newId);
       socket.emit('phase', {
         phase: 'vote',
         answers: filtered,
-        prompt: game.currentPrompt,
-        round: game.round,
-        totalRounds: game.totalRounds,
-        timeLimit: VOTE_TIME,
+        prompt: room.currentPrompt,
+        gameMode: room.gameMode,
+        round: room.round,
+        totalRounds: room.totalRounds,
+        timeLimit: room.customSettings.voteTime,
       });
-      if (game.votes[newId]) socket.emit('vote-received');
-    } else if (game.phase === 'results' || game.phase === 'gameover') {
-      // They'll get the current state from the next broadcast
-      const scoreboard = getPlayerList().sort((a, b) => b.score - a.score);
-      socket.emit('phase', { phase: game.phase, scoreboard, round: game.round, totalRounds: game.totalRounds });
+      if (room.votes[newId]) socket.emit('vote-received');
+    } else if (room.phase === 'results' || room.phase === 'gameover') {
+      const scoreboard = getPlayerList(room).sort((a, b) => b.score - a.score);
+      socket.emit('phase', { phase: room.phase, scoreboard, round: room.round, totalRounds: room.totalRounds });
     }
 
-    io.emit('player-update', getPlayerList());
-    console.log(`${stored.avatar} ${stored.name} reconnected`);
+    emitToRoom(room, 'player-update', getPlayerList(room));
+    console.log(`${stored.avatar} ${stored.name} reconnected to room ${roomCode}`);
   });
 
   // Player joins
   socket.on('join', (data) => {
-    // Support both old format (string) and new format (object)
     const name = typeof data === 'string' ? data : data?.name;
     const requestedAvatar = typeof data === 'object' ? data?.avatar : null;
     const teamId = typeof data === 'object' ? data?.team : null;
+    const roomCode = typeof data === 'object' ? data?.roomCode : null;
 
-    if (game.phase !== 'lobby') {
+    const room = getRoom(roomCode);
+    if (!room) {
+      socket.emit('error-msg', 'Room not found. Check the code and try again.');
+      return;
+    }
+
+    if (room.phase !== 'lobby') {
       socket.emit('error-msg', 'Game already in progress! Wait for the next game.');
       return;
     }
-    // Prevent duplicate joins from same socket
-    if (game.players[socket.id]) return;
+    if (room.players[socket.id]) return;
 
     const cleanName = String(name).trim().slice(0, 20);
     if (!cleanName) return;
 
-    const usedAvatars = Object.values(game.players).map(p => p.avatar);
+    const usedAvatars = Object.values(room.players).map(p => p.avatar);
     const avatar = (requestedAvatar && AVATARS.includes(requestedAvatar) && !usedAvatars.includes(requestedAvatar))
-      ? requestedAvatar : pickAvatar();
+      ? requestedAvatar : pickAvatar(room);
     const token = generateToken();
 
     // Handle team assignment
     let assignedTeam = null;
-    if (game.teamMode) {
-      // Auto-assign to smallest team if not specified
-      const targetTeamId = teamId || (teamsModule.getSmallestTeam(game.teams)?.id);
-      if (targetTeamId && game.teams[targetTeamId]) {
-        teamsModule.assignPlayerToTeam(game.teams, targetTeamId, socket.id);
+    if (room.teamMode) {
+      const targetTeamId = teamId || (teamsModule.getSmallestTeam(room.teams)?.id);
+      if (targetTeamId && room.teams[targetTeamId]) {
+        teamsModule.assignPlayerToTeam(room.teams, targetTeamId, socket.id);
         assignedTeam = targetTeamId;
       }
     }
 
-    game.players[socket.id] = { name: cleanName, score: 0, avatar, token, team: assignedTeam };
+    room.players[socket.id] = { name: cleanName, score: 0, avatar, token, team: assignedTeam };
 
-    // Store persistent identity with session timestamp
-    playersByToken[token] = {
+    room.playersByToken[token] = {
       name: cleanName,
       score: 0,
       avatar,
       socketId: socket.id,
       disconnectTimer: null,
-      sessionStartTime: Date.now(), // Track when session started
+      sessionStartTime: Date.now(),
     };
+    tokenToRoom[token] = roomCode;
 
-    // First player becomes host
-    const isHost = !game.hostSocket;
-    if (isHost) game.hostSocket = socket.id;
+    socketRoom = roomCode;
+    clearTimeout(room.cleanupTimer);
 
-    socket.emit('joined', { name: cleanName, avatar, isHost, token, team: assignedTeam });
-    io.emit('player-update', getPlayerList());
-    io.emit('sound', 'join');
-    console.log(`${avatar} ${cleanName} joined${isHost ? ' (host)' : ''}${assignedTeam ? ` (${game.teams[assignedTeam]?.name})` : ''}`);
+    const isHost = !room.hostSocket;
+    if (isHost) room.hostSocket = socket.id;
+
+    socket.emit('joined', { name: cleanName, avatar, isHost, token, team: assignedTeam, roomCode: room.code });
+    emitToRoom(room, 'player-update', getPlayerList(room));
+    emitToRoom(room, 'sound', 'join');
+    console.log(`${avatar} ${cleanName} joined room ${roomCode}${isHost ? ' (host)' : ''}${assignedTeam ? ` (${room.teams[assignedTeam]?.name})` : ''}`);
   });
 
-  // Reconnection attempt — restore player from token
-  socket.on('reconnect-attempt', (token) => {
-    if (!token || !reconnectionManager.canPlayerRejoin(token)) {
-      socket.emit('reconnect-failed');
-      return;
-    }
-
-    const reconnected = handlePlayerReconnect(socket, token, game, playersByToken, io, reconnectionManager);
-
-    if (reconnected) {
-      const player = game.players[socket.id];
-      socket.emit('reconnected', {
-        token,
-        name: player.name,
-        avatar: player.avatar,
-        score: player.score,
-        isHost: game.hostSocket === socket.id,
-        phase: game.phase,
-      });
-      io.emit('sound', 'join');
-    } else {
-      socket.emit('reconnect-failed');
-    }
-  });
-
-  // Update game settings (TV only, host only)
+  // Update game settings
   socket.on('update-settings', (updates) => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    if (game.phase !== 'lobby') {
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (room.phase !== 'lobby') {
       socket.emit('error-msg', 'Can only change settings in lobby');
       return;
     }
 
-    const { settings, changed } = settingsModule.updateSettings(game.customSettings, updates);
+    const { settings, changed } = settingsModule.updateSettings(room.customSettings, updates);
     if (changed) {
-      game.customSettings = settings;
-      game.totalRounds = settings.totalRounds;
-      io.emit('settings-updated', {
+      room.customSettings = settings;
+      room.totalRounds = settings.totalRounds;
+      emitToRoom(room, 'settings-updated', {
         roundTime: settings.roundTime,
         voteTime: settings.voteTime,
         totalRounds: settings.totalRounds,
         estimatedDuration: settingsModule.getEstimatedDuration(settings),
       });
-      console.log(`Settings updated:`, settings);
+      console.log(`Room ${socketRoom} settings updated:`, settings);
     }
   });
 
-  // Add custom prompt (TV only, host only)
+  // Add custom prompt
   socket.on('add-custom-prompt', (text) => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    if (game.phase !== 'lobby') {
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (room.phase !== 'lobby') {
       socket.emit('error-msg', 'Can only manage prompts in lobby');
       return;
     }
 
-    const added = promptsModule.addCustomPrompt(customPrompts, text);
+    const added = promptsModule.addCustomPrompt(room.customPrompts, text);
     if (added) {
-      promptsModule.saveCustomPrompts(customPrompts);
-      game.customSettings.customPromptList = customPrompts;
-      io.emit('custom-prompts-update', customPrompts);
+      promptsModule.saveCustomPrompts(room.customPrompts);
+      room.customSettings.customPromptList = room.customPrompts;
+      emitToRoom(room, 'custom-prompts-update', room.customPrompts);
       socket.emit('prompt-added', added);
-      console.log(`Added custom prompt: "${added}"`);
     } else {
       socket.emit('error-msg', 'Invalid prompt (must be 5-200 chars, not a duplicate, max 50)');
     }
   });
 
-  // Remove custom prompt (TV only, host only)
+  // Remove custom prompt
   socket.on('remove-custom-prompt', (index) => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    if (game.phase !== 'lobby') {
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (room.phase !== 'lobby') {
       socket.emit('error-msg', 'Can only manage prompts in lobby');
       return;
     }
 
-    const removed = promptsModule.removeCustomPrompt(customPrompts, index);
+    const removed = promptsModule.removeCustomPrompt(room.customPrompts, index);
     if (removed) {
-      promptsModule.saveCustomPrompts(customPrompts);
-      game.customSettings.customPromptList = customPrompts;
-      io.emit('custom-prompts-update', customPrompts);
+      promptsModule.saveCustomPrompts(room.customPrompts);
+      room.customSettings.customPromptList = room.customPrompts;
+      emitToRoom(room, 'custom-prompts-update', room.customPrompts);
       socket.emit('prompt-removed');
-      console.log(`Removed custom prompt at index ${index}`);
     } else {
       socket.emit('error-msg', 'Invalid prompt index');
     }
   });
 
-  // Set game mode (TV only, host only, lobby only)
+  // Set game mode
   socket.on('set-game-mode', (mode) => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    if (game.phase !== 'lobby') return;
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (room.phase !== 'lobby') return;
 
     const validModes = ['hot-take', 'speed-drawing', 'pictionary'];
     if (validModes.includes(mode)) {
-      game.gameMode = mode;
-      io.emit('game-mode-updated', mode);
-      console.log(`Game mode set to: ${mode}`);
+      room.gameMode = mode;
+      emitToRoom(room, 'game-mode-updated', mode);
+      console.log(`Room ${socketRoom} mode set to: ${mode}`);
     }
   });
 
-  // Toggle team mode (TV only, host only, lobby only)
+  // Toggle team mode
   socket.on('set-team-mode', (data) => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    if (game.phase !== 'lobby') return;
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (room.phase !== 'lobby') return;
 
     const teamMode = Boolean(data.teamMode);
     const teamCount = Math.max(2, Math.min(6, parseInt(data.teamCount) || 2));
 
-    if (game.teamMode !== teamMode || (teamMode && Object.keys(game.teams).length !== teamCount)) {
-      game.teamMode = teamMode;
+    if (room.teamMode !== teamMode || (teamMode && Object.keys(room.teams).length !== teamCount)) {
+      room.teamMode = teamMode;
       if (teamMode) {
-        game.teams = teamsModule.createTeams(teamCount);
+        room.teams = teamsModule.createTeams(teamCount);
       } else {
-        game.teams = {};
+        room.teams = {};
       }
-      io.emit('team-mode-updated', { teamMode, teamCount, teams: game.teams });
-      console.log(`Team mode: ${teamMode ? `ON (${teamCount} teams)` : 'OFF'}`);
+      emitToRoom(room, 'team-mode-updated', { teamMode, teamCount, teams: room.teams });
     }
   });
 
-  // Start game (from TV or host phone)
+  // Start game
   socket.on('start-game', (rounds) => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    if (Object.keys(game.players).length < 2) {
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (Object.keys(room.players).length < 2) {
       socket.emit('error-msg', 'Need at least 2 players!');
       return;
     }
-    // Set round count from TV picker (5, 10, or 15)
+
     const validRounds = [5, 10, 15];
     if (validRounds.includes(rounds)) {
-      game.customSettings.totalRounds = rounds;
-      game.totalRounds = rounds;
+      room.customSettings.totalRounds = rounds;
+      room.totalRounds = rounds;
     }
-    io.emit('sound', 'round-start');
+    emitToRoom(room, 'sound', 'round-start');
 
-    // Pictionary: assign drawer
-    if (game.gameMode === 'pictionary') {
-      game.currentDrawer = pictionaryMode.assignDrawer(game, teamsModule);
-      console.log(`Drawer assigned: ${game.players[game.currentDrawer]?.name}`);
+    if (room.gameMode === 'pictionary') {
+      room.currentDrawer = pictionaryMode.assignDrawer(room, teamsModule);
     }
 
-    // Get appropriate prompt picker for game mode
     let pickPromptFn;
-    if (game.gameMode === 'speed-drawing') {
-      pickPromptFn = () => speedDrawingMode.pickPrompt(game, customPrompts);
-    } else if (game.gameMode === 'pictionary') {
-      pickPromptFn = () => pictionaryMode.pickWord(game, customPrompts);
+    if (room.gameMode === 'speed-drawing') {
+      pickPromptFn = () => speedDrawingMode.pickPrompt(room, room.customPrompts);
+    } else if (room.gameMode === 'pictionary') {
+      pickPromptFn = () => pictionaryMode.pickWord(room, room.customPrompts);
     } else {
-      // Hot Take (default)
-      pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
+      pickPromptFn = () => promptsModule.pickPrompt(room, room.customPrompts);
     }
 
-    gameLogic.startRound(game, pickPromptFn, io);
+    // Use emitToRoom wrapper instead of io directly
+    const roomIo = createRoomEmitter(room);
+    gameLogic.startRound(room, pickPromptFn, roomIo);
   });
 
-  // Player submits answer (text, drawing, or guess for pictionary)
+  // Player submits answer
   socket.on('answer', (data) => {
-    if (game.phase !== 'prompt') return;
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (room.phase !== 'prompt') return;
 
-    if (game.gameMode === 'pictionary') {
-      // Pictionary: only non-drawers can submit guesses
-      if (socket.id === game.currentDrawer) return; // Drawer doesn't guess
-      if (game.guesses[socket.id]) return; // Already guessed
+    if (room.gameMode === 'pictionary') {
+      if (socket.id === room.currentDrawer) return;
+      if (room.guesses[socket.id]) return;
 
       const guess = pictionaryMode.validateGuess(data);
       if (!guess) return;
 
-      game.guesses[socket.id] = guess;
+      room.guesses[socket.id] = guess;
       socket.emit('answer-received');
-      io.emit('sound', 'submit');
+      emitToRoom(room, 'sound', 'submit');
 
-      // Count non-drawer players
-      const nonDrawerCount = Object.keys(game.players).length - 1;
-      const guessedCount = Object.keys(game.guesses).length;
+      const nonDrawerCount = Object.keys(room.players).length - 1;
+      const guessedCount = Object.keys(room.guesses).length;
 
-      io.emit('answer-progress', {
+      emitToRoom(room, 'answer-progress', {
         answered: guessedCount,
         total: nonDrawerCount,
       });
 
-      // If all non-drawers have guessed, go to voting
       if (guessedCount >= nonDrawerCount) {
-        clearTimeout(game.roundTimer);
-        gameLogic.startVoting(game, io);
+        clearTimeout(room.roundTimer);
+        const roomIo = createRoomEmitter(room);
+        gameLogic.startVoting(room, roomIo);
       }
     } else {
-      // Speed Drawing or Hot Take
-      // Prevent duplicate submissions
-      if (game.answers[socket.id]) return;
+      if (room.answers[socket.id]) return;
 
       let answer = null;
-
-      if (game.gameMode === 'speed-drawing') {
-        // Drawing submission
+      if (room.gameMode === 'speed-drawing') {
         const imageData = speedDrawingMode.validateDrawing(data);
         if (!imageData) return;
         answer = imageData;
-        game.drawings[socket.id] = imageData;
+        room.drawings[socket.id] = imageData;
       } else {
-        // Text submission (Hot Take)
         const text = hotTakeMode.validateAnswer(data);
         if (!text) return;
         answer = text;
       }
 
-      game.answers[socket.id] = answer;
+      room.answers[socket.id] = answer;
       socket.emit('answer-received');
-      io.emit('sound', 'submit');
+      emitToRoom(room, 'sound', 'submit');
 
-      io.emit('answer-progress', {
-        answered: Object.keys(game.answers).length,
-        total: Object.keys(game.players).length,
+      emitToRoom(room, 'answer-progress', {
+        answered: Object.keys(room.answers).length,
+        total: Object.keys(room.players).length,
       });
 
-      if (gameLogic.checkAllAnswered(game)) {
-        clearTimeout(game.roundTimer);
-        gameLogic.startVoting(game, io);
+      if (gameLogic.checkAllAnswered(room)) {
+        clearTimeout(room.roundTimer);
+        const roomIo = createRoomEmitter(room);
+        gameLogic.startVoting(room, roomIo);
       }
     }
   });
 
-  // Player votes (regular or pictionary approval)
+  // Player votes
   socket.on('vote', (data) => {
-    if (game.phase !== 'vote') return;
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (room.phase !== 'vote') return;
 
-    if (game.gameMode === 'pictionary') {
-      // Pictionary: data = { guesserId, approved: bool }
+    if (room.gameMode === 'pictionary') {
       const guesserId = data.guesserId;
       const approved = Boolean(data.approved);
 
-      // Only drawer votes in pictionary
-      if (socket.id !== game.currentDrawer) return;
+      if (socket.id !== room.currentDrawer) return;
+      if (room.votes[guesserId]) return;
+      if (!room.guesses[guesserId]) return;
 
-      // Prevent duplicate votes
-      if (game.votes[guesserId]) return;
-
-      // Validate guesser exists
-      if (!game.guesses[guesserId]) return;
-
-      game.votes[guesserId] = approved ? 1 : 0;
+      room.votes[guesserId] = approved ? 1 : 0;
       socket.emit('vote-received');
 
-      io.emit('vote-progress', {
-        voted: Object.keys(game.votes).length,
-        total: Object.keys(game.guesses).length,
+      emitToRoom(room, 'vote-progress', {
+        voted: Object.keys(room.votes).length,
+        total: Object.keys(room.guesses).length,
       });
 
-      // When drawer has voted on all guesses
-      if (Object.keys(game.votes).length >= Object.keys(game.guesses).length) {
-        // Score pictionary: drawer gets points for correct guesses, guessers get points if approved
+      if (Object.keys(room.votes).length >= Object.keys(room.guesses).length) {
         let scoreRound;
-
-        if (game.teamMode) {
-          // Team mode: award points to teams
+        if (room.teamMode) {
           scoreRound = (game, voteCounts) => {
             for (const [guesserId, approved] of Object.entries(game.votes)) {
               if (approved) {
-                // Guesser's team gets point
                 teamsModule.scoreTeamRound(game.teams, guesserId, 1);
-                // Also update individual score
                 if (game.players[guesserId]) {
                   game.players[guesserId].score += 1;
                   const token = game.players[guesserId].token;
-                  if (token && playersByToken[token]) {
-                    playersByToken[token].score = game.players[guesserId].score;
+                  if (token && game.playersByToken[token]) {
+                    game.playersByToken[token].score = game.players[guesserId].score;
                   }
                 }
-
-                // Drawer's team gets point too
                 teamsModule.scoreTeamRound(game.teams, game.currentDrawer, 1);
-                // Also update individual drawer score
                 if (game.players[game.currentDrawer]) {
                   game.players[game.currentDrawer].score += 1;
                   const token = game.players[game.currentDrawer].token;
-                  if (token && playersByToken[token]) {
-                    playersByToken[token].score = game.players[game.currentDrawer].score;
+                  if (token && game.playersByToken[token]) {
+                    game.playersByToken[token].score = game.players[game.currentDrawer].score;
                   }
                 }
               }
             }
           };
         } else {
-          // Solo mode: individual scoring
           scoreRound = (game, voteCounts) => {
             for (const [guesserId, approved] of Object.entries(game.votes)) {
               if (approved) {
-                // Guesser was correct
                 if (game.players[guesserId]) {
                   game.players[guesserId].score += 1;
                   const token = game.players[guesserId].token;
-                  if (token && playersByToken[token]) {
-                    playersByToken[token].score = game.players[guesserId].score;
+                  if (token && game.playersByToken[token]) {
+                    game.playersByToken[token].score = game.players[guesserId].score;
                   }
                 }
-                // Drawer gets point for correct guess
                 if (game.players[game.currentDrawer]) {
                   game.players[game.currentDrawer].score += 1;
                   const token = game.players[game.currentDrawer].token;
-                  if (token && playersByToken[token]) {
-                    playersByToken[token].score = game.players[game.currentDrawer].score;
+                  if (token && game.playersByToken[token]) {
+                    game.playersByToken[token].score = game.players[game.currentDrawer].score;
                   }
                 }
               }
@@ -584,142 +652,163 @@ io.on('connection', (socket) => {
           };
         }
 
-        gameLogic.tallyAndShowResults(game, io, scoreRound);
+        const roomIo = createRoomEmitter(room);
+        gameLogic.tallyAndShowResults(room, roomIo, scoreRound);
       }
     } else {
-      // Regular voting (Hot Take / Speed Drawing)
-      // Prevent duplicate votes
-      if (game.votes[socket.id]) return;
-      // Can't vote for yourself
+      if (room.votes[socket.id]) return;
       if (data === socket.id) {
         socket.emit('error-msg', "Can't vote for your own answer!");
         return;
       }
-      // Validate answerId exists
-      if (!game.answers[data]) return;
+      if (!room.answers[data]) return;
 
-      game.votes[socket.id] = data;
+      room.votes[socket.id] = data;
       socket.emit('vote-received');
 
-      io.emit('vote-progress', {
-        voted: Object.keys(game.votes).length,
-        total: Object.keys(game.players).length,
+      emitToRoom(room, 'vote-progress', {
+        voted: Object.keys(room.votes).length,
+        total: Object.keys(room.players).length,
       });
 
-      if (gameLogic.checkAllVoted(game)) {
-        const scorer = scoring.getScorerForMode(game.gameMode);
+      if (gameLogic.checkAllVoted(room)) {
+        const scorer = scoring.getScorerForMode(room.gameMode);
         let scoreRound;
 
-        if (game.teamMode) {
-          // Team mode: award points to team instead of individual
+        if (room.teamMode) {
           scoreRound = (game, voteCounts) => {
             for (const [answerId, count] of Object.entries(voteCounts)) {
               teamsModule.scoreTeamRound(game.teams, answerId, count);
-              // Also update player's personal score for tracking
               if (game.players[answerId]) {
                 game.players[answerId].score += count;
                 const token = game.players[answerId].token;
-                if (token && playersByToken[token]) {
-                  playersByToken[token].score = game.players[answerId].score;
+                if (token && game.playersByToken[token]) {
+                  game.playersByToken[token].score = game.players[answerId].score;
                 }
               }
             }
           };
         } else {
-          // Solo mode: use regular scoring
-          scoreRound = (game, voteCounts) => scorer(game, voteCounts, playersByToken);
+          scoreRound = (game, voteCounts) => scorer(game, voteCounts, game.playersByToken);
         }
 
-        gameLogic.tallyAndShowResults(game, io, scoreRound);
+        const roomIo = createRoomEmitter(room);
+        gameLogic.tallyAndShowResults(room, roomIo, scoreRound);
       }
     }
   });
 
-  // Next round (from TV or host phone)
+  // Next round
   socket.on('next-round', () => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    if (game.round >= game.totalRounds) {
-      gameLogic.endGame(game, io);
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+
+    if (room.round >= room.totalRounds) {
+      const roomIo = createRoomEmitter(room);
+      gameLogic.endGame(room, roomIo);
     } else {
-      io.emit('sound', 'round-start');
+      emitToRoom(room, 'sound', 'round-start');
 
-      // Pictionary: assign next drawer
-      if (game.gameMode === 'pictionary') {
-        game.currentDrawer = pictionaryMode.assignDrawer(game, teamsModule);
-        console.log(`Drawer assigned: ${game.players[game.currentDrawer]?.name}`);
+      if (room.gameMode === 'pictionary') {
+        room.currentDrawer = pictionaryMode.assignDrawer(room, teamsModule);
       }
 
-      // Get appropriate prompt picker for game mode
       let pickPromptFn;
-      if (game.gameMode === 'speed-drawing') {
-        pickPromptFn = () => speedDrawingMode.pickPrompt(game, customPrompts);
-      } else if (game.gameMode === 'pictionary') {
-        pickPromptFn = () => pictionaryMode.pickWord(game, customPrompts);
+      if (room.gameMode === 'speed-drawing') {
+        pickPromptFn = () => speedDrawingMode.pickPrompt(room, room.customPrompts);
+      } else if (room.gameMode === 'pictionary') {
+        pickPromptFn = () => pictionaryMode.pickWord(room, room.customPrompts);
       } else {
-        pickPromptFn = () => promptsModule.pickPrompt(game, customPrompts);
+        pickPromptFn = () => promptsModule.pickPrompt(room, room.customPrompts);
       }
 
-      gameLogic.startRound(game, pickPromptFn, io);
+      const roomIo = createRoomEmitter(room);
+      gameLogic.startRound(room, pickPromptFn, roomIo);
     }
   });
 
-  // Play again (from TV or host phone)
+  // Play again
   socket.on('play-again', () => {
-    if (socket.id !== game.tvSocket && socket.id !== game.hostSocket) return;
-    gameLogic.resetGame(game, playersByToken);
-    io.emit('phase', { phase: 'lobby' });
-    io.emit('player-update', getPlayerList());
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    gameLogic.resetGame(room, room.playersByToken);
+    emitToRoom(room, 'phase', { phase: 'lobby' });
+    emitToRoom(room, 'player-update', getPlayerList(room));
   });
 
-  // Disconnect — grace period before removing player
+  // Disconnect
   socket.on('disconnect', () => {
-    const player = game.players[socket.id];
+    const room = getRoom(socketRoom);
 
-    // Handle TV display disconnect
-    if (socket.id === game.tvSocket) {
-      game.tvSocket = null;
-      console.log('📺 TV display disconnected');
-    }
+    if (room) {
+      // Handle TV disconnect
+      if (socket.id === room.tvSocket) {
+        room.tvSocket = null;
+        console.log(`📺 TV disconnected from room ${socketRoom}`);
+      }
 
-    if (player) {
-      handlePlayerDisconnect(
-        socket,
-        game,
-        playersByToken,
-        io,
-        reconnectionManager,
-        gameLogic
-      );
-    }
+      const player = room.players[socket.id];
+      if (player) {
+        handlePlayerDisconnect(
+          socket,
+          room,
+          room.playersByToken,
+          { emit: (event, data) => emitToRoom(room, event, data) },
+          room.reconnectionManager,
+          gameLogic
+        );
+      }
 
-    // Transfer host immediately in lobby
-    if (game.phase === 'lobby' && socket.id === game.hostSocket) {
-      const remainingIds = Object.keys(game.players);
-      if (remainingIds.length > 0) {
-        game.hostSocket = remainingIds[0];
-        io.to(game.hostSocket).emit('host-assigned');
-        console.log(`👑 Host transferred to ${game.players[game.hostSocket].name}`);
-      } else {
-        game.hostSocket = null;
+      // Transfer host in lobby
+      if (room.phase === 'lobby' && socket.id === room.hostSocket) {
+        const remainingIds = Object.keys(room.players);
+        if (remainingIds.length > 0) {
+          room.hostSocket = remainingIds[0];
+          io.to(room.hostSocket).emit('host-assigned');
+          console.log(`👑 Host transferred in room ${socketRoom}`);
+        } else {
+          room.hostSocket = null;
+        }
+      }
+
+      // Schedule cleanup if room is empty
+      if (Object.keys(room.players).length === 0 && !room.tvSocket) {
+        scheduleRoomCleanup(socketRoom);
       }
     }
+
+    console.log(`Disconnected: ${socket.id}`);
   });
 });
+
+// Create an io-like object that emits to a specific room instead of globally
+function createRoomEmitter(room) {
+  return {
+    emit: (event, data) => emitToRoom(room, event, data),
+    to: (socketId) => ({
+      emit: (event, data) => io.to(socketId).emit(event, data),
+    }),
+  };
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
   console.log('');
   console.log('  Hot Take 🔥 Server Running!');
-  console.log(`   Local:   http://${ip}:${PORT}/tv.html`);
-  console.log(`   Phones:  http://${ip}:${PORT}/phone.html`);
+  console.log(`   Local:   http://${ip}:${PORT}`);
+  console.log(`   Create a room at http://${ip}:${PORT}`);
   console.log('');
 });
 
-// Graceful shutdown handlers
+// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('📴 SIGTERM received, shutting down gracefully...');
-  reconnectionManager.destroy();
+  for (const code of Object.keys(rooms)) {
+    if (rooms[code].reconnectionManager) rooms[code].reconnectionManager.destroy();
+  }
   server.close(() => {
     console.log('✅ Server closed');
     process.exit(0);
@@ -728,7 +817,9 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   console.log('📴 SIGINT received, shutting down gracefully...');
-  reconnectionManager.destroy();
+  for (const code of Object.keys(rooms)) {
+    if (rooms[code].reconnectionManager) rooms[code].reconnectionManager.destroy();
+  }
   server.close(() => {
     console.log('✅ Server closed');
     process.exit(0);

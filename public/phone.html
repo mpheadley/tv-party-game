@@ -11,6 +11,7 @@
   <!-- JOIN -->
   <div id="screen-join" class="phone-container">
     <h1>Hot Take 🔥</h1>
+    <div id="room-code-badge" class="room-code-badge" style="display:none;"></div>
     <div class="join-form">
       <input type="text" id="name-input" placeholder="Your name" maxlength="20" autocomplete="off">
       <label class="emoji-label">Pick your avatar</label>
@@ -63,6 +64,10 @@
       <p class="status" id="host-lobby-status">Waiting for players...</p>
     </div>
     <p class="status" id="non-host-status">Waiting for the game to start...</p>
+    <!-- Phone-only: player list in lobby -->
+    <div class="phone-player-list" id="phone-player-list"></div>
+    <!-- Host: link to open TV display -->
+    <a id="tv-link" class="tv-link" style="display:none;" target="_blank">Open TV Display</a>
   </div>
 
   <!-- ANSWER PROMPT (Text) -->
@@ -71,6 +76,7 @@
       <p id="screen-mode-indicator" style="font-size:0.9rem; opacity:0.7; margin:0;"></p>
     </div>
     <p class="phone-prompt" id="phone-prompt"></p>
+    <div class="phone-timer-bar"><div class="phone-timer-fill" id="phone-timer-fill"></div></div>
     <div class="phone-timer" id="phone-timer"></div>
     <div class="phone-answer">
       <textarea id="answer-input" placeholder="Type your answer..." maxlength="200"></textarea>
@@ -145,6 +151,7 @@
   <div id="screen-round-end" class="phone-container hidden">
     <p class="round-label" id="phone-round-label"></p>
     <p class="snarky-commentary" id="phone-commentary"></p>
+    <div class="phone-reveal-cards" id="phone-reveal-cards"></div>
     <div class="phone-results" id="phone-results"></div>
     <p class="status" id="phone-score" style="margin-top:1rem; font-size:1.4rem; color:#667eea; font-weight:bold;"></p>
     <div class="phone-scoreboard" id="phone-scoreboard"></div>
@@ -154,10 +161,12 @@
   <!-- GAME OVER -->
   <div id="screen-gameover" class="phone-container hidden">
     <h1>Game Over!</h1>
+    <div class="phone-winner-banner" id="phone-winner-banner"></div>
     <p class="phone-rank" id="final-rank"></p>
     <p class="status" id="final-score"></p>
     <div class="phone-scoreboard" id="final-phone-scoreboard"></div>
     <button class="btn-host host-only hidden" id="btn-host-again" style="margin-top:1rem;">Play Again</button>
+    <canvas id="phone-confetti-canvas"></canvas>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -169,6 +178,17 @@
     let isHost = false;
     let myToken = sessionStorage.getItem('hottake-token');
     let currentGameMode = 'hot-take';
+
+    // Room code from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room');
+
+    // Show room code badge
+    if (roomCode) {
+      const badge = document.getElementById('room-code-badge');
+      badge.textContent = `Room: ${roomCode}`;
+      badge.style.display = 'block';
+    }
 
     // Drawing canvas setup
     let drawingCanvas = null;
@@ -465,7 +485,7 @@
       myId = socket.id;
       showConnectionStatus('connected', '✅ Connected');
       if (myToken) {
-        socket.emit('reconnect-attempt', myToken);
+        socket.emit('reconnect-attempt', { token: myToken, roomCode });
       }
     });
 
@@ -633,9 +653,13 @@
     function joinGame() {
       const name = nameInput.value.trim();
       if (!name) return;
+      if (!roomCode) {
+        document.getElementById('join-error').textContent = 'No room code. Go back to the home page.';
+        return;
+      }
       ensureAudio(); // Unlock audio on first user interaction
       btnJoin.disabled = true;
-      socket.emit('join', { name, avatar: selectedAvatar });
+      socket.emit('join', { name, avatar: selectedAvatar, roomCode });
     }
 
     socket.on('joined', (data) => {
@@ -686,6 +710,12 @@
       document.getElementById('non-host-status').classList.add('hidden');
       // Show host buttons on results/gameover if those screens are visible
       document.querySelectorAll('.host-only').forEach(el => el.classList.remove('hidden'));
+      // Show TV link for host
+      if (roomCode) {
+        const tvLink = document.getElementById('tv-link');
+        tvLink.href = `/tv.html?room=${roomCode}`;
+        tvLink.style.display = 'inline-block';
+      }
     }
 
     socket.on('error-msg', (msg) => {
@@ -755,6 +785,17 @@
           }
 
           vibrate(200);
+
+          // Animate phone timer bar
+          const timerFill = document.getElementById('phone-timer-fill');
+          if (timerFill) {
+            timerFill.style.transition = 'none';
+            timerFill.style.width = '100%';
+            requestAnimationFrame(() => {
+              timerFill.style.transition = `width ${data.timeLimit}s linear`;
+              timerFill.style.width = '0%';
+            });
+          }
 
           // Phone timer
           let timeLeft = data.timeLimit;
@@ -867,6 +908,7 @@
               btn.classList.add('selected');
             });
           });
+          }
           break;
 
         case 'results':
@@ -875,6 +917,17 @@
           document.getElementById('phone-round-label').textContent =
             `Round ${data.round} of ${data.totalRounds}`;
           document.getElementById('phone-commentary').textContent = data.commentary || '';
+
+          // Phone-only: reveal cards with staggered animation
+          const revealCards = document.getElementById('phone-reveal-cards');
+          if (revealCards) {
+            revealCards.innerHTML = data.results.map((r, i) =>
+              `<div class="phone-reveal-card" style="animation-delay: ${i * 0.3}s">
+                <div class="phone-reveal-text">"${escapeHtml(r.text)}"</div>
+                <div class="phone-reveal-meta">${r.avatar} ${escapeHtml(r.author)} — ${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
+              </div>`
+            ).join('');
+          }
 
           // Show results on phone
           const resultsEl = document.getElementById('phone-results');
@@ -903,6 +956,15 @@
           showScreen('gameover');
           playSound('gameover');
           vibrate([100, 100, 100, 100, 300]);
+
+          // Winner banner on every phone
+          if (data.scoreboard.length > 0) {
+            const winner = data.scoreboard[0];
+            document.getElementById('phone-winner-banner').innerHTML =
+              `<span class="phone-winner-avatar">${winner.avatar}</span>
+               <span class="phone-winner-name">${escapeHtml(winner.name)} wins!</span>`;
+          }
+
           const finalMe = data.scoreboard.find(p => p.id === myId);
           const rank = data.scoreboard.findIndex(p => p.id === myId) + 1;
           const rankEmoji = ['🥇', '🥈', '🥉'][rank - 1] || '';
@@ -913,6 +975,9 @@
 
           // Show final scoreboard on phone
           renderPhoneScoreboard('final-phone-scoreboard', data.scoreboard);
+
+          // Confetti on every phone!
+          setTimeout(launchPhoneConfetti, 500);
           break;
       }
     });
@@ -938,7 +1003,7 @@
       showScreen('voted');
     });
 
-    // Update emoji picker to show taken avatars
+    // Update emoji picker and phone player list
     socket.on('player-update', (players) => {
       const takenAvatars = players.map(p => p.avatar);
 
@@ -948,11 +1013,18 @@
         const isTaken = takenAvatars.includes(emoji);
         btn.classList.toggle('taken', isTaken);
         btn.disabled = isTaken;
-        // Remove selected ring if their pick was taken
         if (isTaken && emoji === selectedAvatar) {
           btn.classList.remove('selected');
         }
       });
+
+      // Phone-only: render player list in lobby
+      const phonePlayerList = document.getElementById('phone-player-list');
+      if (phonePlayerList) {
+        phonePlayerList.innerHTML = players.map(p =>
+          `<span class="phone-player-chip">${p.avatar} ${escapeHtml(p.name)}</span>`
+        ).join('');
+      }
 
       // Host: update start button
       if (!isHost) return;
@@ -1004,6 +1076,53 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    // ── Phone Confetti ──
+    function launchPhoneConfetti() {
+      const canvas = document.getElementById('phone-confetti-canvas');
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.display = 'block';
+      const ctx = canvas.getContext('2d');
+      const colors = ['#667eea', '#764ba2', '#ffd700', '#ff6b6b', '#48dbfb', '#ff9ff3', '#00d2d3'];
+      const pieces = [];
+
+      for (let i = 0; i < 100; i++) {
+        pieces.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          w: Math.random() * 10 + 4,
+          h: Math.random() * 6 + 3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          vx: (Math.random() - 0.5) * 3,
+          vy: Math.random() * 2.5 + 1.5,
+          rot: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 8,
+        });
+      }
+
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rot += p.rotSpeed;
+          p.vy += 0.04;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot * Math.PI / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        });
+        frame++;
+        if (frame < 250) requestAnimationFrame(animate);
+        else canvas.style.display = 'none';
+      }
+      animate();
     }
   </script>
 </body>

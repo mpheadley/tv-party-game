@@ -8,9 +8,20 @@
 </head>
 <body>
 
+  <!-- NO ROOM ERROR -->
+  <div id="screen-no-room" class="tv-container hidden">
+    <h1>Hot Take 🔥</h1>
+    <p class="subtitle" style="color:#ff6b6b;">No room code found in URL.</p>
+    <p style="color:#888; margin-top:1rem;">Go to <a href="/" style="color:#667eea;">the landing page</a> to create a room first.</p>
+  </div>
+
   <!-- LOBBY -->
   <div id="screen-lobby" class="tv-container">
     <h1>Hot Take 🔥</h1>
+    <div class="room-code-display">
+      <span style="font-size:1.2rem; color:#888;">Room Code</span>
+      <span class="room-code-value" id="room-code-display"></span>
+    </div>
     <p class="subtitle">Scan to join the roast 🔥</p>
     <div id="qr-code"></div>
     <p class="join-url" id="join-url"></p>
@@ -312,8 +323,13 @@
       animate();
     }
 
+    // ── Room Code ──
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room');
+
     // ── Screens ──
     const screens = {
+      noRoom: document.getElementById('screen-no-room'),
       lobby: document.getElementById('screen-lobby'),
       prompt: document.getElementById('screen-prompt'),
       vote: document.getElementById('screen-vote'),
@@ -326,8 +342,14 @@
       screens[name].classList.remove('hidden');
     }
 
-    // Tell server we're the TV — send our public URL so server can generate QR
-    socket.emit('tv-connect', window.location.origin);
+    // Require room code
+    if (!roomCode) {
+      showScreen('noRoom');
+    } else {
+      document.getElementById('room-code-display').textContent = roomCode;
+      // Tell server we're the TV — send room code + public URL
+      socket.emit('tv-connect', { roomCode, publicUrl: window.location.origin });
+    }
 
     // Game mode
     let currentGameMode = 'hot-take';
@@ -350,7 +372,7 @@
 
     // Initial state
     socket.on('game-state', (data) => {
-      const url = `${window.location.origin}/phone.html`;
+      const url = `${window.location.origin}/phone.html?room=${roomCode}`;
       document.getElementById('join-url').textContent = url;
 
       // QR code generated server-side

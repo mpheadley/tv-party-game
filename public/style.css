@@ -1380,3 +1380,76 @@ button,
     transform: scale(0.98);
   }
 }
+
+/* ── Reconnection & Connection Status ── */
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+}
+
+.connection-status {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color: white;
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.9rem;
+  z-index: 999;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.connection-status.reconnecting {
+  background: linear-gradient(135deg, #feca57, #ff9ff3);
+  color: #333;
+}
+
+.connection-status.connected {
+  background: linear-gradient(135deg, #48dbfb, #0abde3);
+  animation: slideDown 0.3s ease-out, slideUp 0.3s ease-out 3s forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+/* Grace period timer */
+.grace-timer {
+  display: inline-block;
+  font-weight: bold;
+  color: #ff6b6b;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 4px;
+  margin: 0 0.25rem;
+}
+
+.grace-timer.critical {
+  animation: pulse 0.5s ease-in-out infinite;
+}

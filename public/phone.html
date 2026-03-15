@@ -20,6 +20,22 @@
     <p class="status" id="join-error" style="color:#ff6b6b;"></p>
   </div>
 
+  <!-- RECONNECTION SCREEN (if disconnected) -->
+  <div id="screen-reconnect" class="phone-container hidden">
+    <div style="text-align:center; animation: fadeIn 0.5s ease-out;">
+      <p style="opacity:0.6; margin-bottom:1rem;">Connection Lost</p>
+      <div style="font-size:3rem; margin:2rem 0;">⚠️</div>
+      <h2 style="margin:1rem 0;">Reconnecting...</h2>
+      <p id="reconnect-message" style="opacity:0.7; margin:1rem 0;">Your game session is being restored.</p>
+      <div class="spinner" style="margin:2rem 0;">
+        <div style="border:3px solid #667eea; border-top:3px solid transparent; border-radius:50%; width:40px; height:40px; animation: spin 1s linear infinite; margin:0 auto;"></div>
+      </div>
+      <p style="font-size:0.85rem; opacity:0.5; margin-top:2rem;">Grace period: <span id="grace-timer">120</span>s remaining</p>
+      <button id="btn-rejoin" class="btn-start hidden">Rejoin Game</button>
+      <button id="btn-new-session" class="btn-secondary" style="margin-top:1rem; width:100%;">Start New Session</button>
+    </div>
+  </div>
+
   <!-- TEAM SELECTION -->
   <div id="screen-team-select" class="phone-container hidden">
     <h2>Pick Your Team</h2>
@@ -441,11 +457,25 @@
     updateModeDisplay(currentGameMode);
 
     // Store socket ID and attempt reconnection
+    // ── Connection Management ──
+    let graceTimerInterval = null;
+    let graceSecondsRemaining = 120;
+
     socket.on('connect', () => {
       myId = socket.id;
+      showConnectionStatus('connected', '✅ Connected');
       if (myToken) {
         socket.emit('reconnect-attempt', myToken);
       }
+    });
+
+    socket.on('disconnect', () => {
+      showConnectionStatus('disconnected', '⚠️  Connection lost — reconnecting...');
+      startGraceTimer();
+    });
+
+    socket.on('connect_error', () => {
+      showConnectionStatus('error', '❌ Connection error');
     });
 
     // Reconnection succeeded — restore game state
@@ -454,6 +484,8 @@
       document.getElementById('my-avatar').textContent = data.avatar;
       document.getElementById('waiting-name').textContent = `Welcome back, ${data.name}!`;
       if (data.isHost) setHost();
+      clearGraceTimer();
+      showConnectionStatus('reconnected', '✅ Reconnected!');
       // The server will follow up with a phase event to put us on the right screen
       if (data.phase === 'lobby') {
         showScreen('waiting');
@@ -464,8 +496,78 @@
     socket.on('reconnect-failed', () => {
       myToken = null;
       sessionStorage.removeItem('hottake-token');
+      clearGraceTimer();
       showScreen('join');
     });
+
+    // Server notifies of other players disconnecting
+    socket.on('player-disconnected', (data) => {
+      showStatusMessage(`${data.name} disconnected (${data.graceSeconds}s grace period)`);
+    });
+
+    socket.on('player-reconnected', (data) => {
+      showStatusMessage(`✅ ${data.name} reconnected!`);
+    });
+
+    // ── Grace Period Timer ──
+    function startGraceTimer() {
+      graceSecondsRemaining = 120;
+      if (graceTimerInterval) clearInterval(graceTimerInterval);
+
+      graceTimerInterval = setInterval(() => {
+        graceSecondsRemaining--;
+        document.getElementById('grace-timer').textContent = graceSecondsRemaining;
+
+        // Critical warning at 30 seconds
+        if (graceSecondsRemaining <= 30) {
+          document.getElementById('grace-timer').className = 'grace-timer critical';
+        }
+
+        if (graceSecondsRemaining <= 0) {
+          clearGraceTimer();
+          showStatusMessage('Grace period expired. Starting new session...');
+        }
+      }, 1000);
+    }
+
+    function clearGraceTimer() {
+      if (graceTimerInterval) {
+        clearInterval(graceTimerInterval);
+        graceTimerInterval = null;
+      }
+      document.getElementById('grace-timer').className = 'grace-timer';
+      graceSecondsRemaining = 120;
+    }
+
+    // ── Connection Status Display ──
+    function showConnectionStatus(status, message) {
+      let existing = document.getElementById('connection-status-bar');
+      if (existing) existing.remove();
+
+      if (status === 'connected') {
+        // Show briefly then hide
+        const bar = document.createElement('div');
+        bar.id = 'connection-status-bar';
+        bar.className = 'connection-status connected';
+        bar.textContent = message;
+        document.body.appendChild(bar);
+        setTimeout(() => bar.remove(), 3000);
+      } else if (status !== 'connected') {
+        const bar = document.createElement('div');
+        bar.id = 'connection-status-bar';
+        bar.className = `connection-status ${status === 'error' ? '' : 'reconnecting'}`;
+        bar.textContent = message;
+        document.body.appendChild(bar);
+      }
+    }
+
+    function showStatusMessage(msg) {
+      const elem = document.getElementById('join-error') || document.getElementById('status');
+      if (elem) {
+        elem.textContent = msg;
+        elem.style.color = '#667eea';
+      }
+    }
 
     // Sound events from server
     socket.on('sound', (type) => { playSound(type); });

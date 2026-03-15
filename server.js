@@ -15,6 +15,7 @@ const teamsModule = require('./src/teams');
 const speedDrawingMode = require('./src/modes/speed-drawing');
 const pictionaryMode = require('./src/modes/pictionary');
 const { ReconnectionManager, handlePlayerDisconnect, handlePlayerReconnect } = require('./src/reconnection-handler');
+const nightFallsMode = require('./src/modes/night-falls');
 
 const app = express();
 const server = http.createServer(app);
@@ -456,7 +457,7 @@ io.on('connection', (socket) => {
     if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
     if (room.phase !== 'lobby') return;
 
-    const validModes = ['hot-take', 'speed-drawing', 'pictionary'];
+    const validModes = ['hot-take', 'speed-drawing', 'pictionary', 'night-falls'];
     if (validModes.includes(mode)) {
       room.gameMode = mode;
       emitToRoom(room, 'game-mode-updated', mode);
@@ -486,15 +487,34 @@ io.on('connection', (socket) => {
   });
 
   // Start game
-  socket.on('start-game', (rounds) => {
+  socket.on('start-game', (data) => {
     const room = getRoom(socketRoom);
     if (!room) return;
     if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
-    if (Object.keys(room.players).length < 3) {
+
+    const playerCount = Object.keys(room.players).length;
+
+    // Night Falls requires 5+ players
+    if (room.gameMode === 'night-falls') {
+      if (playerCount < 5) {
+        socket.emit('error-msg', 'Night Falls needs at least 5 players!');
+        return;
+      }
+      if (playerCount > 16) {
+        socket.emit('error-msg', 'Night Falls supports up to 16 players!');
+        return;
+      }
+      startNightFallsGame(room, data);
+      return;
+    }
+
+    // Other modes: 3+ players
+    if (playerCount < 3) {
       socket.emit('error-msg', 'Need at least 3 players!');
       return;
     }
 
+    const rounds = typeof data === 'number' ? data : data?.rounds;
     const validRounds = [5, 10, 15];
     if (validRounds.includes(rounds)) {
       room.customSettings.totalRounds = rounds;
@@ -740,12 +760,200 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── Night Falls Socket Events ──
+
+  // Night action (werewolf vote, seer investigate, doctor protect, etc.)
+  socket.on('night-action', (data) => {
+    const room = getRoom(socketRoom);
+    if (!room || !room.nfState || room.phase !== 'nf-night') return;
+    const nf = room.nfState;
+    const role = nf.roles[socket.id];
+    if (!role || !nf.alive[socket.id]) return;
+
+    switch (data.action) {
+      case 'eliminate': // Werewolf
+        if (role !== 'werewolf') return;
+        if (!data.targetId || !nf.alive[data.targetId]) return;
+        if (nf.roles[data.targetId] === 'werewolf') return; // Can't target own team
+        nf.nightActions.werewolfVotes[socket.id] = data.targetId;
+        // Broadcast wolf votes to other wolves
+        const wolves = Object.keys(nf.roles).filter(id => nf.roles[id] === 'werewolf' && nf.alive[id]);
+        for (const wolfId of wolves) {
+          io.to(wolfId).emit('wolf-vote-update', {
+            voterId: socket.id,
+            voterName: room.players[socket.id]?.name,
+            voterAvatar: room.players[socket.id]?.avatar,
+            targetName: room.players[data.targetId]?.name,
+          });
+        }
+        break;
+
+      case 'investigate': // Seer
+        if (role !== 'seer') return;
+        if (!data.targetId || !nf.alive[data.targetId]) return;
+        nf.nightActions.seerTarget = data.targetId;
+        const targetRole = nf.roles[data.targetId];
+        const alignment = targetRole === 'werewolf' ? 'evil' : 'good';
+        socket.emit('investigation-result', {
+          targetId: data.targetId,
+          targetName: room.players[data.targetId]?.name,
+          targetAvatar: room.players[data.targetId]?.avatar,
+          alignment,
+        });
+        break;
+
+      case 'protect': // Doctor or Bodyguard
+        if (role !== 'doctor' && role !== 'bodyguard') return;
+        if (!data.targetId || !nf.alive[data.targetId]) return;
+        if (role === 'doctor') {
+          if (data.targetId === nf.lastDoctorTarget) {
+            socket.emit('error-msg', "Can't protect the same player twice in a row!");
+            return;
+          }
+          nf.nightActions.doctorTarget = data.targetId;
+        } else {
+          nf.nightActions.bodyguardTarget = data.targetId;
+        }
+        socket.emit('action-confirmed', { action: 'protect', targetName: room.players[data.targetId]?.name });
+        break;
+
+      case 'witch-heal':
+        if (role !== 'witch' || nf.witchHealUsed) return;
+        nf.nightActions.witchHeal = true;
+        socket.emit('action-confirmed', { action: 'witch-heal' });
+        break;
+
+      case 'witch-kill':
+        if (role !== 'witch' || nf.witchKillUsed) return;
+        if (!data.targetId || !nf.alive[data.targetId]) return;
+        nf.nightActions.witchKill = data.targetId;
+        socket.emit('action-confirmed', { action: 'witch-kill', targetName: room.players[data.targetId]?.name });
+        break;
+
+      case 'witch-skip':
+        if (role !== 'witch') return;
+        socket.emit('action-confirmed', { action: 'witch-skip' });
+        break;
+
+      case 'pair-lovers': // Cupid
+        if (role !== 'cupid' || nf.nightNumber !== 1 || nf.cupidLovers) return;
+        if (!data.lover1 || !data.lover2 || data.lover1 === data.lover2) return;
+        if (!nf.alive[data.lover1] || !nf.alive[data.lover2]) return;
+        nf.nightActions.cupidPair = [data.lover1, data.lover2];
+        socket.emit('action-confirmed', {
+          action: 'pair-lovers',
+          lover1: room.players[data.lover1]?.name,
+          lover2: room.players[data.lover2]?.name,
+        });
+        // Notify the lovers
+        io.to(data.lover1).emit('lover-paired', {
+          loverId: data.lover2,
+          loverName: room.players[data.lover2]?.name,
+          loverAvatar: room.players[data.lover2]?.avatar,
+        });
+        io.to(data.lover2).emit('lover-paired', {
+          loverId: data.lover1,
+          loverName: room.players[data.lover1]?.name,
+          loverAvatar: room.players[data.lover1]?.avatar,
+        });
+        break;
+    }
+
+    // Check if all night actions are in
+    if (nightFallsMode.checkAllNightActionsSubmitted(nf)) {
+      clearTimeout(room.roundTimer);
+      resolveNightPhase(room);
+    }
+  });
+
+  // Day vote
+  socket.on('day-vote', (data) => {
+    const room = getRoom(socketRoom);
+    if (!room || !room.nfState || room.phase !== 'nf-day-vote') return;
+    const nf = room.nfState;
+    if (!nf.alive[socket.id]) return;
+    if (nf.dayVotes[socket.id] !== undefined) return;
+
+    const targetId = data.targetId || 'skip';
+    if (targetId !== 'skip') {
+      if (!nf.alive[targetId] || targetId === socket.id) return;
+    }
+
+    nf.dayVotes[socket.id] = targetId;
+    socket.emit('vote-received');
+    emitToRoom(room, 'sound', 'submit');
+
+    // Broadcast progress
+    const aliveCount = Object.keys(nf.alive).filter(id => nf.alive[id]).length;
+    const votedCount = Object.keys(nf.dayVotes).length;
+    emitToRoom(room, 'nf-vote-progress', { voted: votedCount, total: aliveCount });
+
+    if (nightFallsMode.checkAllDayVotes(nf)) {
+      clearTimeout(room.roundTimer);
+      resolveDayVotePhase(room);
+    }
+  });
+
+  // Hunter's revenge shot
+  socket.on('hunter-target', (data) => {
+    const room = getRoom(socketRoom);
+    if (!room || !room.nfState) return;
+    const nf = room.nfState;
+    if (nf.hunterPending !== socket.id) return;
+
+    const eliminated = nightFallsMode.resolveHunterShot(nf, data.targetId, room.players);
+    if (eliminated && eliminated.length > 0) {
+      emitToRoom(room, 'sound', 'nf-eliminate');
+      emitToRoom(room, 'nf-hunter-result', {
+        hunterName: room.players[socket.id]?.name || 'Hunter',
+        eliminated: eliminated.map(e => ({
+          name: e.name, avatar: e.avatar, role: e.roleName, roleEmoji: e.roleEmoji,
+        })),
+      });
+    }
+
+    // Continue to check win or next phase
+    const win = nightFallsMode.checkWinCondition(nf);
+    if (win) {
+      endNightFallsGame(room, win);
+    } else if (room.phase === 'nf-dawn' || room.phase === 'nf-vote-reveal') {
+      // After hunter shot, continue to next appropriate phase
+      setTimeout(() => {
+        if (room.phase === 'nf-dawn') startDayDiscussion(room);
+        else startNightPhase(room);
+      }, 3000);
+    }
+  });
+
+  // Night Falls role config from lobby
+  socket.on('nf-configure', (data) => {
+    const room = getRoom(socketRoom);
+    if (!room) return;
+    if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
+    if (room.phase !== 'lobby' || room.gameMode !== 'night-falls') return;
+
+    if (data.enabledRoles && Array.isArray(data.enabledRoles)) {
+      room.nfEnabledRoles = data.enabledRoles;
+    }
+    if (data.nightDuration) room.nfNightDuration = Math.max(15, Math.min(45, data.nightDuration));
+    if (data.discussionDuration) room.nfDiscussionDuration = Math.max(60, Math.min(300, data.discussionDuration));
+    if (data.voteDuration) room.nfVoteDuration = Math.max(15, Math.min(60, data.voteDuration));
+
+    emitToRoom(room, 'nf-config-updated', {
+      enabledRoles: room.nfEnabledRoles,
+      nightDuration: room.nfNightDuration,
+      discussionDuration: room.nfDiscussionDuration,
+      voteDuration: room.nfVoteDuration,
+    });
+  });
+
   // Play again
   socket.on('play-again', () => {
     const room = getRoom(socketRoom);
     if (!room) return;
     if (socket.id !== room.tvSocket && socket.id !== room.hostSocket) return;
     gameLogic.resetGame(room, room.playersByToken);
+    room.nfState = null; // Clear Night Falls state
     emitToRoom(room, 'phase', { phase: 'lobby' });
     emitToRoom(room, 'player-update', getPlayerList(room));
   });
@@ -794,6 +1002,300 @@ io.on('connection', (socket) => {
     console.log(`Disconnected: ${socket.id}`);
   });
 });
+
+// ── Night Falls Game Flow Functions ──
+
+function startNightFallsGame(room, data) {
+  const playerIds = Object.keys(room.players);
+  const enabledRoles = room.nfEnabledRoles || ['seer', 'doctor'];
+
+  // Assign roles
+  const roles = nightFallsMode.assignRoles(playerIds, enabledRoles);
+  if (!roles) {
+    emitToRoom(room, 'error-msg', 'Could not assign roles for this player count.');
+    return;
+  }
+
+  // Initialize Night Falls state
+  const nf = nightFallsMode.createNightFallsState();
+  nf.roles = roles;
+  nf.enabledRoles = enabledRoles;
+  nf.nightDuration = room.nfNightDuration || 25;
+  nf.discussionDuration = room.nfDiscussionDuration || 120;
+  nf.voteDuration = room.nfVoteDuration || 30;
+
+  // Mark all players alive
+  for (const id of playerIds) {
+    nf.alive[id] = true;
+  }
+
+  room.nfState = nf;
+  room.phase = 'nf-role-reveal';
+
+  emitToRoom(room, 'sound', 'nf-role-reveal');
+
+  // Send each player their role privately
+  for (const playerId of playerIds) {
+    const roleInfo = nightFallsMode.getRoleInfo(nf, playerId, room.players);
+    io.to(playerId).emit('nf-role-assigned', roleInfo);
+  }
+
+  // TV shows atmospheric "roles are being revealed" screen
+  emitToRoom(room, 'phase', {
+    phase: 'nf-role-reveal',
+    gameMode: 'night-falls',
+    playerCount: playerIds.length,
+  });
+
+  // After reveal time, start first night
+  room.roundTimer = setTimeout(() => {
+    startNightPhase(room);
+  }, 8000); // 8 seconds to read role
+}
+
+function startNightPhase(room) {
+  const nf = room.nfState;
+  nf.nightNumber++;
+  room.phase = 'nf-night';
+
+  // Reset night actions
+  nf.nightActions = {
+    werewolfVotes: {},
+    seerTarget: null,
+    doctorTarget: null,
+    witchHeal: false,
+    witchKill: null,
+    cupidPair: null,
+    bodyguardTarget: null,
+  };
+
+  emitToRoom(room, 'sound', 'nf-night');
+
+  // TV: atmospheric night screen
+  const tvData = nightFallsMode.getTVData(nf, room.players, 'nf-night');
+  emitToRoom(room, 'phase', {
+    ...tvData,
+    gameMode: 'night-falls',
+    timeLimit: nf.nightDuration,
+  });
+
+  // Send each alive player their night prompt
+  const aliveIds = Object.keys(nf.alive).filter(id => nf.alive[id]);
+  for (const playerId of aliveIds) {
+    const prompt = nightFallsMode.getNightPrompt(nf, playerId, room.players);
+    io.to(playerId).emit('nf-night-prompt', prompt);
+  }
+
+  // Dead players see spectator view
+  for (const playerId of Object.keys(room.players)) {
+    if (!nf.alive[playerId]) {
+      io.to(playerId).emit('nf-night-prompt', { action: 'spectator', nightNumber: nf.nightNumber });
+    }
+  }
+
+  // Auto-resolve when timer expires
+  clearTimeout(room.roundTimer);
+  room.roundTimer = setTimeout(() => {
+    if (room.phase === 'nf-night') {
+      resolveNightPhase(room);
+    }
+  }, (nf.nightDuration + 1) * 1000);
+}
+
+function resolveNightPhase(room) {
+  clearTimeout(room.roundTimer);
+  const nf = room.nfState;
+  room.phase = 'nf-dawn';
+
+  const results = nightFallsMode.resolveNight(nf, room.players);
+
+  emitToRoom(room, 'sound', results.survived ? 'nf-survived' : 'nf-eliminate');
+
+  // Dawn reveal on TV and all phones
+  emitToRoom(room, 'phase', {
+    phase: 'nf-dawn',
+    gameMode: 'night-falls',
+    nightNumber: nf.nightNumber,
+    eliminated: results.eliminated.map(e => ({
+      name: e.name, avatar: e.avatar, role: e.roleName, roleEmoji: e.roleEmoji, cause: e.cause,
+    })),
+    survived: results.survived,
+    events: results.events,
+    aliveCount: Object.keys(nf.alive).filter(id => nf.alive[id]).length,
+  });
+
+  // Check win condition
+  const win = nightFallsMode.checkWinCondition(nf);
+  if (win) {
+    setTimeout(() => endNightFallsGame(room, win), 6000);
+    return;
+  }
+
+  // Check for hunter trigger
+  if (nf.hunterPending) {
+    io.to(nf.hunterPending).emit('nf-hunter-trigger', {
+      alivePlayers: nightFallsMode.getAlivePlayers(nf, room.players, nf.hunterPending),
+    });
+    emitToRoom(room, 'nf-waiting-hunter', {
+      hunterName: room.players[nf.hunterPending]?.name || 'Hunter',
+    });
+    // Hunter has 15 seconds to pick
+    room.roundTimer = setTimeout(() => {
+      if (nf.hunterPending) {
+        // Auto-skip hunter shot
+        nf.hunterPending = null;
+        startDayDiscussion(room);
+      }
+    }, 15000);
+    return;
+  }
+
+  // After dawn reveal, transition to day discussion
+  setTimeout(() => startDayDiscussion(room), 6000);
+}
+
+function startDayDiscussion(room) {
+  const nf = room.nfState;
+  room.phase = 'nf-day-discuss';
+  nf.dayVotes = {};
+
+  emitToRoom(room, 'sound', 'nf-day');
+
+  const tvData = nightFallsMode.getTVData(nf, room.players, 'nf-day-discuss');
+  emitToRoom(room, 'phase', {
+    ...tvData,
+    gameMode: 'night-falls',
+    timeLimit: nf.discussionDuration,
+  });
+
+  // Auto-transition to voting after discussion time
+  clearTimeout(room.roundTimer);
+  room.roundTimer = setTimeout(() => {
+    if (room.phase === 'nf-day-discuss') {
+      startDayVote(room);
+    }
+  }, (nf.discussionDuration + 1) * 1000);
+}
+
+function startDayVote(room) {
+  const nf = room.nfState;
+  room.phase = 'nf-day-vote';
+
+  emitToRoom(room, 'sound', 'vote-open');
+
+  const alivePlayers = nightFallsMode.getAllAlivePlayers(nf, room.players);
+  emitToRoom(room, 'phase', {
+    phase: 'nf-day-vote',
+    gameMode: 'night-falls',
+    alivePlayers,
+    eliminatedPlayers: nf.eliminated.map(e => ({
+      name: e.name, avatar: e.avatar, role: e.roleName, roleEmoji: e.roleEmoji,
+    })),
+    timeLimit: nf.voteDuration,
+  });
+
+  // Auto-resolve after vote timer
+  clearTimeout(room.roundTimer);
+  room.roundTimer = setTimeout(() => {
+    if (room.phase === 'nf-day-vote') {
+      // Auto-skip for players who didn't vote
+      const aliveIds = Object.keys(nf.alive).filter(id => nf.alive[id]);
+      for (const id of aliveIds) {
+        if (nf.dayVotes[id] === undefined) {
+          nf.dayVotes[id] = 'skip';
+        }
+      }
+      resolveDayVotePhase(room);
+    }
+  }, (nf.voteDuration + 1) * 1000);
+}
+
+function resolveDayVotePhase(room) {
+  clearTimeout(room.roundTimer);
+  const nf = room.nfState;
+  room.phase = 'nf-vote-reveal';
+
+  const results = nightFallsMode.resolveDayVote(nf, room.players);
+
+  emitToRoom(room, 'sound', results.ejected ? 'nf-eliminate' : 'vote-close');
+
+  emitToRoom(room, 'phase', {
+    phase: 'nf-vote-reveal',
+    gameMode: 'night-falls',
+    ejected: results.ejected ? {
+      name: results.ejected.name,
+      avatar: results.ejected.avatar,
+      role: results.ejected.roleName,
+      roleEmoji: results.ejected.roleEmoji,
+    } : null,
+    tie: results.tie,
+    voteTally: results.voteTally,
+    skipCount: results.skipCount,
+    jesterWin: results.jesterWin || false,
+    loverDeath: results.loverDeath ? {
+      name: results.loverDeath.name, avatar: results.loverDeath.avatar,
+      role: results.loverDeath.roleName, roleEmoji: results.loverDeath.roleEmoji,
+    } : null,
+    aliveCount: Object.keys(nf.alive).filter(id => nf.alive[id]).length,
+  });
+
+  // Check jester win
+  if (results.jesterWin) {
+    setTimeout(() => {
+      endNightFallsGame(room, { winner: 'jester', reason: 'The Jester tricked the village into voting them out!' });
+    }, 5000);
+    return;
+  }
+
+  // Check win condition
+  const win = nightFallsMode.checkWinCondition(nf);
+  if (win) {
+    setTimeout(() => endNightFallsGame(room, win), 5000);
+    return;
+  }
+
+  // Check hunter trigger
+  if (nf.hunterPending) {
+    io.to(nf.hunterPending).emit('nf-hunter-trigger', {
+      alivePlayers: nightFallsMode.getAlivePlayers(nf, room.players, nf.hunterPending),
+    });
+    emitToRoom(room, 'nf-waiting-hunter', {
+      hunterName: room.players[nf.hunterPending]?.name || 'Hunter',
+    });
+    room.roundTimer = setTimeout(() => {
+      if (nf.hunterPending) {
+        nf.hunterPending = null;
+        startNightPhase(room);
+      }
+    }, 15000);
+    return;
+  }
+
+  // Next night
+  setTimeout(() => startNightPhase(room), 5000);
+}
+
+function endNightFallsGame(room, win) {
+  clearTimeout(room.roundTimer);
+  const nf = room.nfState;
+  room.phase = 'nf-gameover';
+
+  const soundMap = {
+    villagers: 'nf-village-wins',
+    werewolves: 'nf-wolves-win',
+    jester: 'nf-jester-wins',
+  };
+  emitToRoom(room, 'sound', soundMap[win.winner] || 'gameover');
+
+  emitToRoom(room, 'phase', {
+    phase: 'nf-gameover',
+    gameMode: 'night-falls',
+    winner: win.winner,
+    reason: win.reason,
+    allRoles: nightFallsMode.getAllRoles(nf, room.players),
+    nightsPlayed: nf.nightNumber,
+  });
+}
 
 // Create an io-like object that emits to a specific room instead of globally
 function createRoomEmitter(room) {

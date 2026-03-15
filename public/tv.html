@@ -41,6 +41,7 @@
         <button class="mode-button selected" data-mode="hot-take">🔥 Hot Take</button>
         <button class="mode-button" data-mode="speed-drawing">🎨 Speed Drawing</button>
         <button class="mode-button" data-mode="pictionary">🎭 Pictionary</button>
+        <button class="mode-button" data-mode="night-falls">🐺 Night Falls</button>
       </div>
     </div>
     <div class="round-picker">
@@ -90,6 +91,93 @@
     <div class="scoreboard" id="final-scoreboard"></div>
     <button class="btn-start" id="btn-again" style="margin-top:2rem;">🔄 Play Again</button>
     <canvas id="confetti-canvas"></canvas>
+  </div>
+
+  <!-- NIGHT FALLS: ROLE REVEAL -->
+  <div id="screen-nf-role-reveal" class="tv-container hidden">
+    <div class="nf-atmosphere nf-night-bg">
+      <h1>🐺 Night Falls</h1>
+      <p class="subtitle" style="font-size:2rem;">Roles are being revealed...</p>
+      <p style="color:#aaa; font-size:1.3rem; margin-top:1rem;">Check your phones 📱</p>
+      <div class="nf-moon">🌙</div>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: NIGHT PHASE -->
+  <div id="screen-nf-night" class="tv-container hidden">
+    <div class="nf-atmosphere nf-night-bg">
+      <div class="nf-moon">🌙</div>
+      <h1 style="font-size:3rem; margin-bottom:0.5rem;">Night Falls...</h1>
+      <p class="subtitle" style="font-size:1.5rem; color:#8899aa;">The village sleeps.<br>But not everyone is innocent.</p>
+      <p id="nf-night-number" style="color:#667; font-size:1.2rem; margin-top:1rem;"></p>
+      <div class="timer-bar" style="margin-top:2rem;"><div class="timer-fill" id="nf-night-timer-fill"></div></div>
+      <p class="timer-countdown" id="nf-night-countdown"></p>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: DAWN REVEAL -->
+  <div id="screen-nf-dawn" class="tv-container hidden">
+    <div class="nf-atmosphere nf-dawn-bg">
+      <div class="nf-sun">☀️</div>
+      <h1 style="font-size:3rem;">Dawn Breaks</h1>
+      <p class="subtitle" id="nf-dawn-subtitle" style="font-size:1.5rem;"></p>
+      <div id="nf-dawn-eliminated" style="margin:2rem 0;"></div>
+      <p id="nf-dawn-alive" style="color:#aaa; font-size:1.2rem;"></p>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: DAY DISCUSSION -->
+  <div id="screen-nf-day-discuss" class="tv-container hidden">
+    <div class="nf-atmosphere nf-day-bg">
+      <h1 style="font-size:2.5rem;">☀️ Day Phase</h1>
+      <p class="subtitle" style="font-size:1.3rem; color:#555;">Discuss — who is the wolf? 🐺</p>
+      <div class="nf-player-grid" id="nf-alive-players"></div>
+      <div id="nf-eliminated-sidebar" style="margin-top:1.5rem;"></div>
+      <div class="timer-bar" style="margin-top:2rem;"><div class="timer-fill" id="nf-discuss-timer-fill"></div></div>
+      <p class="timer-countdown" id="nf-discuss-countdown"></p>
+      <p style="color:#888; margin-top:0.5rem;">Vote on your phones when ready</p>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: DAY VOTE -->
+  <div id="screen-nf-day-vote" class="tv-container hidden">
+    <div class="nf-atmosphere nf-day-bg">
+      <h1 style="font-size:2.5rem;">🗳️ Vote!</h1>
+      <p class="subtitle" style="font-size:1.3rem;">Who do you want to eliminate?</p>
+      <div id="nf-vote-progress" style="font-size:1.2rem; color:#888; margin:1rem 0;"></div>
+      <div class="timer-bar"><div class="timer-fill" id="nf-vote-timer-fill"></div></div>
+      <p class="timer-countdown" id="nf-vote-countdown"></p>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: VOTE REVEAL -->
+  <div id="screen-nf-vote-reveal" class="tv-container hidden">
+    <div class="nf-atmosphere nf-day-bg">
+      <h1 style="font-size:2.5rem;">The Village Has Spoken</h1>
+      <div id="nf-vote-result" style="margin:2rem 0;"></div>
+      <p id="nf-vote-alive" style="color:#aaa; font-size:1.2rem;"></p>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: GAME OVER -->
+  <div id="screen-nf-gameover" class="tv-container hidden">
+    <div class="nf-atmosphere" id="nf-gameover-bg">
+      <h1 id="nf-gameover-title" style="font-size:3rem;"></h1>
+      <p id="nf-gameover-reason" class="subtitle" style="font-size:1.5rem;"></p>
+      <div id="nf-all-roles" style="margin:2rem 0;"></div>
+      <p id="nf-nights-played" style="color:#aaa;"></p>
+      <button class="btn-start" id="btn-nf-again" style="margin-top:2rem;">🔄 Play Again</button>
+    </div>
+    <canvas id="nf-confetti-canvas"></canvas>
+  </div>
+
+  <!-- NIGHT FALLS: WAITING FOR HUNTER -->
+  <div id="screen-nf-hunter-wait" class="tv-container hidden">
+    <div class="nf-atmosphere nf-night-bg">
+      <h1 style="font-size:2.5rem;">🏹 The Hunter Takes Aim!</h1>
+      <p id="nf-hunter-name" class="subtitle" style="font-size:1.5rem;"></p>
+      <p style="color:#aaa; font-size:1.2rem;">Waiting for the Hunter to choose their target...</p>
+    </div>
   </div>
 
   <!-- CUSTOM PROMPTS MODAL -->
@@ -240,6 +328,48 @@
           playChord([150], 0.15, 'sine', 0.12);
           setTimeout(() => playChord([150], 0.1, 'sine', 0.08), 200);
           break;
+
+        // Night Falls sounds
+        case 'nf-role-reveal':
+          // Low dramatic chord
+          playChord([110, 165, 220], 0.8, 'sine', 0.1);
+          setTimeout(() => playChord([138, 207, 277], 0.6, 'triangle', 0.06), 600);
+          break;
+        case 'nf-night':
+          // Wolf howl — rising then falling tone with vibrato
+          playNFHowl();
+          break;
+        case 'nf-day':
+          // Morning — bright ascending
+          playChord([330, 415, 523], 0.3, 'sine', 0.1);
+          setTimeout(() => playChord([523, 659, 784], 0.4, 'triangle', 0.08), 300);
+          break;
+        case 'nf-eliminate':
+          // Dark stab chord
+          playChord([110, 139, 165], 0.5, 'sawtooth', 0.08);
+          setTimeout(() => playChord([98, 123, 147], 0.8, 'sine', 0.06), 300);
+          break;
+        case 'nf-survived':
+          // Relief sigh + chime
+          playChord([330, 415, 523], 0.4, 'sine', 0.08);
+          setTimeout(() => playChord([784, 988], 0.2, 'triangle', 0.05), 400);
+          break;
+        case 'nf-village-wins':
+          // Triumphant village fanfare
+          playFanfare();
+          break;
+        case 'nf-wolves-win':
+          // Dark victory
+          playChord([110, 138, 165], 0.4, 'sawtooth', 0.1);
+          setTimeout(() => playChord([82, 110, 138, 165], 0.8, 'sine', 0.08), 400);
+          setTimeout(() => playChord([55, 82, 110], 1.2, 'triangle', 0.06), 900);
+          break;
+        case 'nf-jester-wins':
+          // Circus/carnival sting
+          playChord([523, 659, 784], 0.12, 'square', 0.08);
+          setTimeout(() => playChord([659, 784, 988], 0.12, 'square', 0.08), 150);
+          setTimeout(() => playChord([784, 988, 1175], 0.3, 'sine', 0.1), 300);
+          break;
       }
     }
 
@@ -346,6 +476,31 @@
       osc.stop(audioCtx.currentTime + 0.06);
     }
 
+    function playNFHowl() {
+      // Atmospheric wolf howl — rising sweep with vibrato
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const vibrato = audioCtx.createOscillator();
+      const vibratoGain = audioCtx.createGain();
+      vibrato.frequency.value = 6;
+      vibratoGain.gain.value = 15;
+      vibrato.connect(vibratoGain).connect(osc.frequency);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+      osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.5);
+      osc.frequency.linearRampToValueAtTime(350, audioCtx.currentTime + 1.2);
+      osc.frequency.linearRampToValueAtTime(180, audioCtx.currentTime + 1.8);
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime + 1.0);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.0);
+      osc.connect(gain).connect(audioCtx.destination);
+      vibrato.start();
+      osc.start();
+      osc.stop(audioCtx.currentTime + 2.1);
+      vibrato.stop(audioCtx.currentTime + 2.1);
+    }
+
     // ── Text-to-Speech ──
     let cachedVoices = [];
     if ('speechSynthesis' in window) {
@@ -424,6 +579,14 @@
       vote: document.getElementById('screen-vote'),
       results: document.getElementById('screen-results'),
       gameover: document.getElementById('screen-gameover'),
+      'nf-role-reveal': document.getElementById('screen-nf-role-reveal'),
+      'nf-night': document.getElementById('screen-nf-night'),
+      'nf-dawn': document.getElementById('screen-nf-dawn'),
+      'nf-day-discuss': document.getElementById('screen-nf-day-discuss'),
+      'nf-day-vote': document.getElementById('screen-nf-day-vote'),
+      'nf-vote-reveal': document.getElementById('screen-nf-vote-reveal'),
+      'nf-gameover': document.getElementById('screen-nf-gameover'),
+      'nf-hunter-wait': document.getElementById('screen-nf-hunter-wait'),
     };
 
     function showScreen(name) {
@@ -491,11 +654,20 @@
       ).join('');
 
       const btn = document.getElementById('btn-start');
-      btn.disabled = players.length < 3;
-      document.getElementById('lobby-status').textContent =
-        players.length < 3
-          ? `⏳ Need at least 3 players (${players.length} joined)`
-          : `🎮 ${players.length} players ready!`;
+      const minPlayers = currentGameMode === 'night-falls' ? 5 : 3;
+      btn.disabled = players.length < minPlayers;
+
+      if (currentGameMode === 'night-falls') {
+        document.getElementById('lobby-status').textContent =
+          players.length < 5
+            ? `⏳ Need at least 5 players (${players.length} joined)`
+            : `🐺 ${players.length} players ready for Night Falls!`;
+      } else {
+        document.getElementById('lobby-status').textContent =
+          players.length < 3
+            ? `⏳ Need at least 3 players (${players.length} joined)`
+            : `🎮 ${players.length} players ready!`;
+      }
     }
 
     // Round picker
@@ -676,6 +848,118 @@
           }
           setTimeout(launchConfetti, 500);
           break;
+
+        // ── Night Falls Phases ──
+        case 'nf-role-reveal':
+          showScreen('nf-role-reveal');
+          break;
+
+        case 'nf-night':
+          showScreen('nf-night');
+          document.getElementById('nf-night-number').textContent = `Night ${data.nightNumber}`;
+          startNFTimer('nf-night-timer-fill', 'nf-night-countdown', data.timeLimit);
+          break;
+
+        case 'nf-dawn':
+          showScreen('nf-dawn');
+          if (data.survived) {
+            document.getElementById('nf-dawn-subtitle').textContent = 'Everyone survived the night! ✨';
+            document.getElementById('nf-dawn-eliminated').innerHTML = '';
+          } else {
+            document.getElementById('nf-dawn-subtitle').textContent = 'The village wakes to find...';
+            document.getElementById('nf-dawn-eliminated').innerHTML = data.eliminated.map(e =>
+              `<div class="nf-eliminated-reveal">
+                <span style="font-size:3rem;">${e.avatar}</span>
+                <p style="font-size:1.8rem; margin:0.5rem 0;">💀 ${escapeHtml(e.name)} was eliminated!</p>
+                <p style="color:#aaa; font-size:1.3rem;">${escapeHtml(e.name)} was a... <strong>${e.roleEmoji} ${e.role}</strong></p>
+                ${e.cause === 'heartbreak' ? '<p style="color:#ff6b9d;">💔 Died of heartbreak (lover)</p>' : ''}
+                ${e.cause === 'bodyguard-sacrifice' ? '<p style="color:#5bc0de;">🛡️ Sacrificed themselves protecting another</p>' : ''}
+              </div>`
+            ).join('');
+          }
+          document.getElementById('nf-dawn-alive').textContent = `${data.aliveCount} players remain.`;
+          break;
+
+        case 'nf-day-discuss':
+          showScreen('nf-day-discuss');
+          document.getElementById('nf-alive-players').innerHTML = data.alivePlayers.map(p =>
+            `<div class="nf-player-card">${p.avatar} <span>${escapeHtml(p.name)}</span></div>`
+          ).join('');
+          document.getElementById('nf-eliminated-sidebar').innerHTML = data.eliminatedPlayers.length > 0
+            ? `<p style="color:#888; margin-bottom:0.5rem;">💀 Eliminated:</p>
+               <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center;">
+                 ${data.eliminatedPlayers.map(e => `<span class="nf-dead-tag">${e.avatar} ${escapeHtml(e.name)} (${e.roleEmoji} ${e.role})</span>`).join('')}
+               </div>` : '';
+          startNFTimer('nf-discuss-timer-fill', 'nf-discuss-countdown', data.timeLimit);
+          break;
+
+        case 'nf-day-vote':
+          showScreen('nf-day-vote');
+          document.getElementById('nf-vote-progress').textContent = 'Voting on phones...';
+          startNFTimer('nf-vote-timer-fill', 'nf-vote-countdown', data.timeLimit);
+          break;
+
+        case 'nf-vote-reveal':
+          showScreen('nf-vote-reveal');
+          if (data.jesterWin) {
+            document.getElementById('nf-vote-result').innerHTML =
+              `<div class="nf-eliminated-reveal">
+                <p style="font-size:2rem;">🃏 The Jester wins!</p>
+                <p style="font-size:1.3rem; color:#aaa;">${data.ejected ? escapeHtml(data.ejected.name) + ' tricked you all!' : ''}</p>
+              </div>`;
+          } else if (data.ejected) {
+            document.getElementById('nf-vote-result').innerHTML =
+              `<div class="nf-eliminated-reveal">
+                <span style="font-size:3rem;">${data.ejected.avatar}</span>
+                <p style="font-size:1.8rem; margin:0.5rem 0;">${escapeHtml(data.ejected.name)} has been voted out!</p>
+                <p style="color:#aaa; font-size:1.3rem;">${escapeHtml(data.ejected.name)} was a... <strong>${data.ejected.roleEmoji} ${data.ejected.role}</strong></p>
+                ${data.loverDeath ? `<p style="color:#ff6b9d;">💔 ${escapeHtml(data.loverDeath.name)} died of heartbreak</p>` : ''}
+              </div>`;
+          } else if (data.tie) {
+            document.getElementById('nf-vote-result').innerHTML =
+              `<div class="nf-eliminated-reveal">
+                <p style="font-size:2rem;">⚖️ It's a tie!</p>
+                <p style="color:#aaa; font-size:1.3rem;">No one was eliminated.</p>
+              </div>`;
+          } else {
+            document.getElementById('nf-vote-result').innerHTML =
+              `<div class="nf-eliminated-reveal">
+                <p style="font-size:2rem;">🤷 The village chose to skip.</p>
+                <p style="color:#aaa; font-size:1.3rem;">No one was eliminated.</p>
+              </div>`;
+          }
+          document.getElementById('nf-vote-alive').textContent = `${data.aliveCount} players remain.`;
+          break;
+
+        case 'nf-gameover':
+          showScreen('nf-gameover');
+          const bgEl = document.getElementById('nf-gameover-bg');
+          const titleEl = document.getElementById('nf-gameover-title');
+          if (data.winner === 'villagers') {
+            bgEl.className = 'nf-atmosphere nf-day-bg';
+            titleEl.textContent = '🏆 The Village Wins!';
+          } else if (data.winner === 'werewolves') {
+            bgEl.className = 'nf-atmosphere nf-night-bg';
+            titleEl.textContent = '🐺 The Werewolves Win!';
+          } else {
+            bgEl.className = 'nf-atmosphere nf-dawn-bg';
+            titleEl.textContent = '🃏 The Jester Wins!';
+          }
+          document.getElementById('nf-gameover-reason').textContent = data.reason;
+          document.getElementById('nf-nights-played').textContent = `Game lasted ${data.nightsPlayed} night${data.nightsPlayed !== 1 ? 's' : ''}.`;
+          document.getElementById('nf-all-roles').innerHTML = data.allRoles.map(r =>
+            `<div class="nf-role-reveal-card ${r.alive ? '' : 'nf-dead'}">
+              <span style="font-size:2rem;">${r.avatar}</span>
+              <strong>${escapeHtml(r.name)}</strong>
+              <span>${r.roleEmoji} ${r.roleName}</span>
+              ${!r.alive ? '<span class="nf-dead-x">💀</span>' : ''}
+            </div>`
+          ).join('');
+          setTimeout(() => {
+            const c = document.getElementById('nf-confetti-canvas');
+            if (data.winner === 'villagers') launchConfettiOnCanvas(c);
+          }, 500);
+          break;
       }
     });
 
@@ -691,6 +975,115 @@
       document.getElementById('vote-status').textContent =
         allIn ? `✅ All votes cast!` : `📱 ${data.voted} of ${data.total} voted`;
     });
+
+    // Night Falls event listeners
+    socket.on('nf-vote-progress', (data) => {
+      const el = document.getElementById('nf-vote-progress');
+      if (el) el.textContent = data.voted === data.total
+        ? `✅ All ${data.total} votes cast!`
+        : `🗳️ ${data.voted} of ${data.total} voted`;
+    });
+
+    socket.on('nf-waiting-hunter', (data) => {
+      showScreen('nf-hunter-wait');
+      document.getElementById('nf-hunter-name').textContent =
+        `${data.hunterName} is taking their revenge shot...`;
+    });
+
+    socket.on('nf-hunter-result', (data) => {
+      // Brief display then server continues flow
+    });
+
+    document.getElementById('btn-nf-again').addEventListener('click', () => {
+      socket.emit('play-again');
+    });
+
+    function launchConfettiOnCanvas(canvas) {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.display = 'block';
+      const ctx = canvas.getContext('2d');
+      const colors = ['#506be6', '#764ba2', '#ffd700', '#ff6b6b', '#48dbfb', '#ff9ff3', '#00d2d3'];
+      const pieces = [];
+      for (let i = 0; i < 150; i++) {
+        pieces.push({
+          x: Math.random() * canvas.width, y: Math.random() * canvas.height - canvas.height,
+          w: Math.random() * 12 + 6, h: Math.random() * 8 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          vx: (Math.random() - 0.5) * 4, vy: Math.random() * 3 + 2,
+          rot: Math.random() * 360, rotSpeed: (Math.random() - 0.5) * 10,
+        });
+      }
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.x += p.vx; p.y += p.vy; p.rot += p.rotSpeed; p.vy += 0.05;
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+          ctx.fillStyle = p.color; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+        });
+        frame++;
+        if (frame < 300) requestAnimationFrame(animate);
+        else canvas.style.display = 'none';
+      }
+      animate();
+    }
+
+    // Night Falls timer helper
+    function startNFTimer(fillId, countdownId, duration) {
+      clearInterval(countdownInterval);
+      const fill = document.getElementById(fillId);
+      const countdown = document.getElementById(countdownId);
+      fill.style.transition = 'none';
+      fill.style.width = '100%';
+      fill.classList.remove('timer-warning');
+      requestAnimationFrame(() => {
+        fill.style.transition = `width ${duration}s linear`;
+        fill.style.width = '0%';
+      });
+      let timeLeft = duration;
+      countdown.textContent = timeLeft + 's';
+      countdown.classList.remove('timer-warning-text');
+      countdownInterval = setInterval(() => {
+        timeLeft--;
+        countdown.textContent = timeLeft + 's';
+        if (timeLeft <= 10) {
+          fill.classList.add('timer-warning');
+          countdown.classList.add('timer-warning-text');
+        }
+        if (timeLeft <= 0) clearInterval(countdownInterval);
+      }, 1000);
+    }
+
+    // Handle lobby UI changes for Night Falls mode
+    socket.on('game-mode-updated', handleModeUIUpdate);
+    function handleModeUIUpdate(mode) {
+      const roundPicker = document.querySelector('.round-picker');
+      const promptsBtn = document.getElementById('btn-manage-prompts');
+      const settingsBtn = document.getElementById('btn-manage-settings');
+      const teamsBtn = document.getElementById('btn-manage-teams');
+      const startBtn = document.getElementById('btn-start');
+
+      if (mode === 'night-falls') {
+        // Hide irrelevant controls for Night Falls
+        if (roundPicker) roundPicker.style.display = 'none';
+        if (promptsBtn) promptsBtn.style.display = 'none';
+        if (settingsBtn) settingsBtn.style.display = 'none';
+        if (teamsBtn) teamsBtn.style.display = 'none';
+        // Update min player requirement
+        const players = document.querySelectorAll('.player-card');
+        startBtn.disabled = players.length < 5;
+        document.getElementById('lobby-status').textContent =
+          players.length < 5
+            ? `⏳ Need at least 5 players (${players.length} joined)`
+            : `🐺 ${players.length} players ready for Night Falls!`;
+      } else {
+        if (roundPicker) roundPicker.style.display = '';
+        if (promptsBtn) promptsBtn.style.display = '';
+        if (settingsBtn) settingsBtn.style.display = '';
+        if (teamsBtn) teamsBtn.style.display = '';
+      }
+    }
 
     // Next round / play again
     document.getElementById('btn-next').addEventListener('click', () => {

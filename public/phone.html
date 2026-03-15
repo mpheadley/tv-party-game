@@ -197,6 +197,97 @@
     <canvas id="phone-confetti-canvas"></canvas>
   </div>
 
+  <!-- NIGHT FALLS: ROLE REVEAL -->
+  <div id="screen-nf-role" class="phone-container hidden">
+    <div class="nf-phone-role">
+      <p style="font-size:4rem; margin-bottom:0.5rem;" id="nf-role-emoji"></p>
+      <h2 id="nf-role-title" style="font-size:1.8rem; margin-bottom:1rem;"></h2>
+      <p id="nf-role-description" style="color:#aaa; margin-bottom:1.5rem;"></p>
+      <div id="nf-role-teammates" style="margin-bottom:1rem;"></div>
+      <div id="nf-lover-info" style="display:none; margin-top:1rem; padding:1rem; background:rgba(255,107,155,0.1); border-radius:0.5rem;">
+        <p style="color:#ff6b9d;">💘 You are lovers with <strong id="nf-lover-name"></strong></p>
+      </div>
+      <button class="btn-start" id="btn-nf-role-ok">Got it 👍</button>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: NIGHT ACTION -->
+  <div id="screen-nf-night" class="phone-container hidden">
+    <div class="nf-phone-night">
+      <p style="font-size:0.9rem; color:#667;" id="nf-night-label"></p>
+      <p style="font-size:1.5rem;" id="nf-night-role-label"></p>
+      <div id="nf-night-content" style="margin:1rem 0;"></div>
+      <div class="phone-timer" id="nf-phone-night-timer"></div>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: NIGHT SPECTATOR (dead) -->
+  <div id="screen-nf-spectator" class="phone-container hidden">
+    <div style="text-align:center;">
+      <p style="font-size:3rem;">💀</p>
+      <h2>You've been eliminated</h2>
+      <p style="color:#aaa;">Watch the drama unfold on the TV...</p>
+      <p class="phone-timer" id="nf-spectator-timer"></p>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: DAY DISCUSSION -->
+  <div id="screen-nf-discuss" class="phone-container hidden">
+    <div style="text-align:center;">
+      <h2>☀️ Discussion Time</h2>
+      <p style="color:#aaa; margin:0.5rem 0;">Talk it out — who's the wolf?</p>
+      <p id="nf-your-role-reminder" style="margin:1rem 0; padding:0.5rem; background:rgba(80,107,230,0.1); border-radius:0.5rem;"></p>
+      <div class="phone-timer" id="nf-discuss-timer"></div>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: DAY VOTE -->
+  <div id="screen-nf-vote" class="phone-container hidden">
+    <h2>🗳️ Who do you want to eliminate?</h2>
+    <div id="nf-vote-options" style="margin:1rem 0;"></div>
+    <button class="btn-secondary" id="btn-nf-skip-vote" style="width:100%; margin-top:0.5rem;">⏭️ Skip Vote</button>
+    <div class="phone-timer" id="nf-vote-timer"></div>
+  </div>
+
+  <!-- NIGHT FALLS: VOTE SUBMITTED -->
+  <div id="screen-nf-voted" class="phone-container hidden">
+    <div style="text-align:center;">
+      <p style="font-size:3rem;">🗳️</p>
+      <h2>Vote cast!</h2>
+      <p id="nf-vote-wait-status" style="color:#aaa;">⏳ Waiting for others...</p>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: DAWN/RESULTS (passive viewing on phone) -->
+  <div id="screen-nf-dawn" class="phone-container hidden">
+    <div style="text-align:center;">
+      <p style="font-size:3rem;" id="nf-dawn-icon">☀️</p>
+      <h2 id="nf-dawn-phone-title">Dawn Breaks</h2>
+      <div id="nf-dawn-phone-content" style="margin:1rem 0;"></div>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: HUNTER TRIGGER -->
+  <div id="screen-nf-hunter" class="phone-container hidden">
+    <div style="text-align:center;">
+      <p style="font-size:3rem;">🏹</p>
+      <h2>Take your revenge shot!</h2>
+      <p style="color:#aaa; margin-bottom:1rem;">You've been eliminated — choose someone to take down with you!</p>
+      <div id="nf-hunter-targets" style="margin:1rem 0;"></div>
+    </div>
+  </div>
+
+  <!-- NIGHT FALLS: GAME OVER -->
+  <div id="screen-nf-gameover" class="phone-container hidden">
+    <div style="text-align:center;">
+      <h1 id="nf-phone-gameover-title" style="font-size:2rem;"></h1>
+      <p id="nf-phone-gameover-reason" style="color:#aaa; margin:0.5rem 0 1.5rem;"></p>
+      <div id="nf-phone-all-roles" style="margin:1rem 0;"></div>
+      <button class="btn-host host-only hidden" id="btn-nf-phone-again" style="margin-top:1rem;">🔄 Play Again</button>
+    </div>
+    <canvas id="nf-phone-confetti-canvas"></canvas>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -341,6 +432,31 @@
         case 'reveal': playReveal(); break;
         case 'tick': playTick(); break;
         case 'gameover': playFanfare(); break;
+        // Night Falls sounds
+        case 'nf-role-reveal':
+          playChord([110, 165, 220], 0.6, 'sine', 0.08);
+          break;
+        case 'nf-night':
+          playChord([150, 200], 0.5, 'sine', 0.06);
+          break;
+        case 'nf-day':
+          playChord([330, 415, 523], 0.3, 'sine', 0.08);
+          break;
+        case 'nf-eliminate':
+          playChord([110, 139, 165], 0.4, 'sawtooth', 0.06);
+          break;
+        case 'nf-survived':
+          playChord([330, 415, 523], 0.3, 'sine', 0.06);
+          setTimeout(() => playChord([784], 0.2, 'triangle', 0.04), 300);
+          break;
+        case 'nf-village-wins': playFanfare(); break;
+        case 'nf-wolves-win':
+          playChord([110, 138, 165], 0.4, 'sawtooth', 0.08);
+          break;
+        case 'nf-jester-wins':
+          playChord([523, 659, 784], 0.1, 'square', 0.06);
+          setTimeout(() => playChord([784, 988, 1175], 0.2, 'sine', 0.08), 200);
+          break;
       }
     }
 
@@ -455,6 +571,15 @@
       voted: document.getElementById('screen-voted'),
       roundEnd: document.getElementById('screen-round-end'),
       gameover: document.getElementById('screen-gameover'),
+      'nf-role': document.getElementById('screen-nf-role'),
+      'nf-night': document.getElementById('screen-nf-night'),
+      'nf-spectator': document.getElementById('screen-nf-spectator'),
+      'nf-discuss': document.getElementById('screen-nf-discuss'),
+      'nf-vote': document.getElementById('screen-nf-vote'),
+      'nf-voted': document.getElementById('screen-nf-voted'),
+      'nf-dawn': document.getElementById('screen-nf-dawn'),
+      'nf-hunter': document.getElementById('screen-nf-hunter'),
+      'nf-gameover': document.getElementById('screen-nf-gameover'),
     };
 
     function showScreen(name) {
@@ -474,6 +599,7 @@
           'hot-take': '🔥',
           'speed-drawing': '🎨',
           'pictionary': '🎭',
+          'night-falls': '🐺',
         }[currentGameMode] || '';
 
         modeIndicator.textContent = `${modeEmoji} ${currentGameMode.replace('-', ' ')}`;
@@ -623,6 +749,7 @@
         'hot-take': '🔥 Hot Take',
         'speed-drawing': '🎨 Speed Drawing',
         'pictionary': '🎭 Pictionary',
+        'night-falls': '🐺 Night Falls',
       };
 
       modeDisplay.textContent = modeMap[mode] || mode;
@@ -1144,8 +1271,444 @@
           // Confetti on every phone!
           setTimeout(launchPhoneConfetti, 500);
           break;
+
+        // ── Night Falls Phone Phases ──
+        case 'nf-role-reveal':
+          // Role is sent via separate 'nf-role-assigned' event
+          break;
+
+        case 'nf-night':
+          // Night prompt is sent via separate 'nf-night-prompt' event
+          break;
+
+        case 'nf-dawn':
+          showScreen('nf-dawn');
+          vibrate(200);
+          if (data.survived) {
+            document.getElementById('nf-dawn-icon').textContent = '✨';
+            document.getElementById('nf-dawn-phone-title').textContent = 'Everyone survived!';
+            document.getElementById('nf-dawn-phone-content').innerHTML = '<p style="color:#aaa;">No one was eliminated last night.</p>';
+          } else {
+            document.getElementById('nf-dawn-icon').textContent = '☀️';
+            document.getElementById('nf-dawn-phone-title').textContent = 'Dawn Breaks';
+            document.getElementById('nf-dawn-phone-content').innerHTML = data.eliminated.map(e =>
+              `<div style="margin:0.5rem 0;">
+                <p style="font-size:1.3rem;">💀 ${escapeHtml(e.name)} was eliminated</p>
+                <p style="color:#aaa;">${e.roleEmoji} ${e.role}</p>
+              </div>`
+            ).join('');
+          }
+          break;
+
+        case 'nf-day-discuss':
+          showScreen('nf-discuss');
+          vibrate(150);
+          if (nfMyRole) {
+            document.getElementById('nf-your-role-reminder').textContent =
+              `Your role: ${nfMyRole.emoji} ${nfMyRole.roleName}`;
+          }
+          startPhoneTimer('nf-discuss-timer', data.timeLimit);
+          break;
+
+        case 'nf-day-vote':
+          if (!nfMyAlive) {
+            showScreen('nf-spectator');
+            break;
+          }
+          showScreen('nf-vote');
+          vibrate(200);
+          nfHasVoted = false;
+          const voteOpts = document.getElementById('nf-vote-options');
+          voteOpts.innerHTML = data.alivePlayers
+            .filter(p => p.id !== myId)
+            .map(p => `<button class="vote-btn nf-vote-btn" data-id="${p.id}">${p.avatar} ${escapeHtml(p.name)}</button>`)
+            .join('');
+          voteOpts.querySelectorAll('.nf-vote-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (nfHasVoted) return;
+              nfHasVoted = true;
+              vibrate(80);
+              playSound('vote-cast');
+              socket.emit('day-vote', { targetId: btn.dataset.id });
+              showScreen('nf-voted');
+            });
+          });
+          startPhoneTimer('nf-vote-timer', data.timeLimit);
+          break;
+
+        case 'nf-vote-reveal':
+          showScreen('nf-dawn');
+          vibrate([100, 100]);
+          if (data.ejected) {
+            document.getElementById('nf-dawn-icon').textContent = '🗳️';
+            document.getElementById('nf-dawn-phone-title').textContent = `${data.ejected.name} was voted out!`;
+            document.getElementById('nf-dawn-phone-content').innerHTML =
+              `<p style="font-size:1.2rem;">${data.ejected.roleEmoji} ${data.ejected.role}</p>
+               ${data.loverDeath ? `<p style="color:#ff6b9d; margin-top:0.5rem;">💔 ${escapeHtml(data.loverDeath.name)} died of heartbreak</p>` : ''}`;
+          } else if (data.tie) {
+            document.getElementById('nf-dawn-icon').textContent = '⚖️';
+            document.getElementById('nf-dawn-phone-title').textContent = 'Tie — no one eliminated';
+            document.getElementById('nf-dawn-phone-content').innerHTML = '';
+          } else {
+            document.getElementById('nf-dawn-icon').textContent = '🤷';
+            document.getElementById('nf-dawn-phone-title').textContent = 'Vote skipped';
+            document.getElementById('nf-dawn-phone-content').innerHTML = '';
+          }
+          break;
+
+        case 'nf-gameover':
+          showScreen('nf-gameover');
+          vibrate([100, 100, 100, 100, 300]);
+          const goTitle = document.getElementById('nf-phone-gameover-title');
+          if (data.winner === 'villagers') {
+            goTitle.textContent = '🏆 The Village Wins!';
+          } else if (data.winner === 'werewolves') {
+            goTitle.textContent = '🐺 The Werewolves Win!';
+          } else {
+            goTitle.textContent = '🃏 The Jester Wins!';
+          }
+          document.getElementById('nf-phone-gameover-reason').textContent = data.reason;
+          document.getElementById('nf-phone-all-roles').innerHTML = data.allRoles.map(r =>
+            `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.5rem; ${!r.alive ? 'opacity:0.5;' : ''}">
+              <span style="font-size:1.5rem;">${r.avatar}</span>
+              <strong>${escapeHtml(r.name)}</strong>
+              <span>${r.roleEmoji} ${r.roleName}</span>
+              ${!r.alive ? '<span>💀</span>' : ''}
+            </div>`
+          ).join('');
+          if (isHost) {
+            document.querySelectorAll('.host-only').forEach(el => el.classList.remove('hidden'));
+          }
+          if (data.winner === 'villagers') {
+            setTimeout(() => {
+              const c = document.getElementById('nf-phone-confetti-canvas');
+              if (c) launchPhoneConfettiOnCanvas(c);
+            }, 500);
+          }
+          break;
       }
     });
+
+    // ── Night Falls Phone State ──
+    let nfMyRole = null;
+    let nfMyAlive = true;
+    let nfHasVoted = false;
+
+    // Role assigned
+    socket.on('nf-role-assigned', (data) => {
+      nfMyRole = data;
+      nfMyAlive = true;
+      showScreen('nf-role');
+      document.getElementById('nf-role-emoji').textContent = data.emoji;
+      document.getElementById('nf-role-title').textContent = `You are a ${data.roleName}`;
+      document.getElementById('nf-role-description').textContent = data.description;
+      vibrate([100, 50, 200]);
+
+      if (data.teammates && data.teammates.length > 0) {
+        document.getElementById('nf-role-teammates').innerHTML =
+          `<p style="color:#ff6b6b; margin-bottom:0.5rem;">Your pack:</p>` +
+          data.teammates.map(t => `<p>${t.avatar} ${escapeHtml(t.name)}</p>`).join('');
+      } else {
+        document.getElementById('nf-role-teammates').innerHTML = '';
+      }
+    });
+
+    document.getElementById('btn-nf-role-ok').addEventListener('click', () => {
+      // Just acknowledge, server handles timing
+    });
+
+    // Night prompt
+    socket.on('nf-night-prompt', (data) => {
+      if (data.action === 'spectator') {
+        nfMyAlive = false;
+        showScreen('nf-spectator');
+        return;
+      }
+
+      showScreen('nf-night');
+      document.getElementById('nf-night-label').textContent = `🌙 Night ${data.nightNumber}`;
+      document.getElementById('nf-night-role-label').textContent = `${data.emoji} ${data.roleName}`;
+
+      const content = document.getElementById('nf-night-content');
+
+      switch (data.action) {
+        case 'choose-target': // Werewolf
+          content.innerHTML = `
+            <p style="margin-bottom:1rem;">Choose your target:</p>
+            <div id="nf-wolf-targets">
+              ${data.alivePlayers.map(p => `<button class="vote-btn nf-action-btn" data-id="${p.id}">${p.avatar} ${escapeHtml(p.name)}</button>`).join('')}
+            </div>
+            ${data.wolfVotes && Object.keys(data.wolfVotes).length > 0 ? `
+              <div style="margin-top:1rem; color:#aaa;">
+                <p>Pack votes:</p>
+                ${Object.values(data.wolfVotes).map(v => `<p>${v.voterAvatar} ${v.voterName} → ${v.targetName}</p>`).join('')}
+              </div>` : ''}
+            <div id="nf-wolf-vote-display" style="margin-top:1rem; color:#aaa;"></div>
+          `;
+          content.querySelectorAll('.nf-action-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              vibrate(80);
+              socket.emit('night-action', { action: 'eliminate', targetId: btn.dataset.id });
+              content.querySelectorAll('.nf-action-btn').forEach(b => b.classList.remove('selected'));
+              btn.classList.add('selected');
+            });
+          });
+          break;
+
+        case 'investigate': // Seer
+          content.innerHTML = `
+            <p style="margin-bottom:1rem;">Investigate a player's alignment:</p>
+            <div id="nf-seer-targets">
+              ${data.alivePlayers.map(p => `<button class="vote-btn nf-action-btn" data-id="${p.id}">${p.avatar} ${escapeHtml(p.name)}</button>`).join('')}
+            </div>
+          `;
+          content.querySelectorAll('.nf-action-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              vibrate(80);
+              socket.emit('night-action', { action: 'investigate', targetId: btn.dataset.id });
+              content.querySelectorAll('.nf-action-btn').forEach(b => b.disabled = true);
+            });
+          });
+          break;
+
+        case 'protect': // Doctor or Bodyguard
+          const cantPickLabel = data.lastTarget ? `<p style="color:#ff6b6b; font-size:0.9rem; margin-bottom:0.5rem;">Can't protect the same player twice in a row</p>` : '';
+          content.innerHTML = `
+            <p style="margin-bottom:0.5rem;">Choose who to protect:</p>
+            ${cantPickLabel}
+            <div>
+              ${data.alivePlayers.map(p => {
+                const disabled = p.id === data.lastTarget ? 'disabled style="opacity:0.4;"' : '';
+                return `<button class="vote-btn nf-action-btn" data-id="${p.id}" ${disabled}>${p.avatar} ${escapeHtml(p.name)}</button>`;
+              }).join('')}
+            </div>
+          `;
+          content.querySelectorAll('.nf-action-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => {
+              vibrate(80);
+              socket.emit('night-action', { action: 'protect', targetId: btn.dataset.id });
+              content.querySelectorAll('.nf-action-btn').forEach(b => b.disabled = true);
+              btn.classList.add('selected');
+            });
+          });
+          break;
+
+        case 'witch-choose': // Witch
+          let witchHtml = '';
+          if (data.attackedPlayer && data.hasHealPotion) {
+            witchHtml += `
+              <div style="margin-bottom:1rem; padding:1rem; background:rgba(255,107,107,0.1); border-radius:0.5rem;">
+                <p>🐺 The wolves attacked <strong>${data.attackedPlayer.avatar} ${escapeHtml(data.attackedPlayer.name)}</strong></p>
+                <button class="btn-start nf-witch-btn" id="btn-witch-heal" style="margin-top:0.5rem;">💊 Use Heal Potion</button>
+              </div>`;
+          }
+          if (data.hasKillPotion) {
+            witchHtml += `
+              <div style="margin-bottom:1rem;">
+                <p style="margin-bottom:0.5rem;">☠️ Use Kill Potion:</p>
+                ${data.alivePlayers.map(p => `<button class="vote-btn nf-witch-kill-btn" data-id="${p.id}">${p.avatar} ${escapeHtml(p.name)}</button>`).join('')}
+              </div>`;
+          }
+          witchHtml += `<button class="btn-secondary" id="btn-witch-skip" style="width:100%;">💤 Do nothing</button>`;
+          content.innerHTML = witchHtml;
+
+          const healBtn = document.getElementById('btn-witch-heal');
+          if (healBtn) {
+            healBtn.addEventListener('click', () => {
+              vibrate(80);
+              socket.emit('night-action', { action: 'witch-heal' });
+              healBtn.disabled = true;
+              healBtn.textContent = '✅ Healed!';
+            });
+          }
+          content.querySelectorAll('.nf-witch-kill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              vibrate(80);
+              socket.emit('night-action', { action: 'witch-kill', targetId: btn.dataset.id });
+              content.querySelectorAll('.nf-witch-kill-btn').forEach(b => b.disabled = true);
+              btn.classList.add('selected');
+            });
+          });
+          const skipBtn = document.getElementById('btn-witch-skip');
+          if (skipBtn) {
+            skipBtn.addEventListener('click', () => {
+              socket.emit('night-action', { action: 'witch-skip' });
+              skipBtn.disabled = true;
+              skipBtn.textContent = '✅ Skipped';
+            });
+          }
+          break;
+
+        case 'pair-lovers': // Cupid
+          content.innerHTML = `
+            <p style="margin-bottom:1rem;">💘 Choose two players to be lovers:</p>
+            <p style="color:#aaa; font-size:0.9rem; margin-bottom:0.5rem;">If one dies, both die.</p>
+            <div id="nf-cupid-targets">
+              ${data.allAlivePlayers.map(p => `<button class="vote-btn nf-cupid-btn" data-id="${p.id}">${p.avatar} ${escapeHtml(p.name)}</button>`).join('')}
+            </div>
+            <button class="btn-start" id="btn-cupid-confirm" disabled style="margin-top:1rem;">Pair Lovers 💘</button>
+          `;
+          let cupidPicks = [];
+          content.querySelectorAll('.nf-cupid-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (cupidPicks.includes(btn.dataset.id)) {
+                cupidPicks = cupidPicks.filter(id => id !== btn.dataset.id);
+                btn.classList.remove('selected');
+              } else if (cupidPicks.length < 2) {
+                cupidPicks.push(btn.dataset.id);
+                btn.classList.add('selected');
+              }
+              document.getElementById('btn-cupid-confirm').disabled = cupidPicks.length !== 2;
+            });
+          });
+          document.getElementById('btn-cupid-confirm').addEventListener('click', () => {
+            if (cupidPicks.length === 2) {
+              vibrate(80);
+              socket.emit('night-action', { action: 'pair-lovers', lover1: cupidPicks[0], lover2: cupidPicks[1] });
+              document.getElementById('btn-cupid-confirm').disabled = true;
+              document.getElementById('btn-cupid-confirm').textContent = '✅ Paired!';
+            }
+          });
+          break;
+
+        case 'sleep': // Villager
+          content.innerHTML = `
+            <div style="text-align:center;">
+              <p style="font-size:3rem;">💤</p>
+              <p style="font-size:1.2rem;">Sleep peacefully...</p>
+              <p style="color:#aaa; margin-top:0.5rem;">The village sleeps while dark forces are at work...</p>
+            </div>
+          `;
+          break;
+      }
+    });
+
+    // Seer investigation result
+    socket.on('investigation-result', (data) => {
+      const content = document.getElementById('nf-night-content');
+      if (!content) return;
+      const alignColor = data.alignment === 'good' ? '#4CAF50' : '#ff6b6b';
+      const alignEmoji = data.alignment === 'good' ? '👼' : '🐺';
+      content.innerHTML = `
+        <div style="text-align:center;">
+          <p style="font-size:1.2rem;">🔮 Investigation Result</p>
+          <p style="font-size:2rem; margin:1rem 0;">${data.targetAvatar} ${escapeHtml(data.targetName)}</p>
+          <p style="font-size:2.5rem; color:${alignColor}; font-weight:bold;">${alignEmoji} ${data.alignment.toUpperCase()}</p>
+          <p style="color:#aaa; margin-top:1rem; font-size:0.9rem;">Remember this — share wisely!</p>
+        </div>
+      `;
+      vibrate([100, 50, 100]);
+    });
+
+    // Wolf vote updates
+    socket.on('wolf-vote-update', (data) => {
+      const display = document.getElementById('nf-wolf-vote-display');
+      if (display) {
+        const existing = display.innerHTML;
+        display.innerHTML = existing + `<p>${data.voterAvatar} ${data.voterName} → ${data.targetName}</p>`;
+      }
+    });
+
+    // Action confirmed
+    socket.on('action-confirmed', (data) => {
+      vibrate(80);
+    });
+
+    // Lover paired notification
+    socket.on('lover-paired', (data) => {
+      const loverInfo = document.getElementById('nf-lover-info');
+      if (loverInfo) {
+        loverInfo.style.display = 'block';
+        document.getElementById('nf-lover-name').textContent = `${data.loverAvatar} ${data.loverName}`;
+      }
+    });
+
+    // Hunter trigger
+    socket.on('nf-hunter-trigger', (data) => {
+      showScreen('nf-hunter');
+      vibrate([200, 100, 200]);
+      const targets = document.getElementById('nf-hunter-targets');
+      targets.innerHTML = data.alivePlayers.map(p =>
+        `<button class="vote-btn nf-action-btn" data-id="${p.id}">${p.avatar} ${escapeHtml(p.name)}</button>`
+      ).join('');
+      targets.querySelectorAll('.nf-action-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          vibrate(100);
+          socket.emit('hunter-target', { targetId: btn.dataset.id });
+          targets.querySelectorAll('.nf-action-btn').forEach(b => b.disabled = true);
+          btn.classList.add('selected');
+        });
+      });
+    });
+
+    // NF vote progress
+    socket.on('nf-vote-progress', (data) => {
+      const el = document.getElementById('nf-vote-wait-status');
+      if (el) el.textContent = `🗳️ ${data.voted}/${data.total} voted`;
+    });
+
+    // NF skip vote
+    document.getElementById('btn-nf-skip-vote').addEventListener('click', () => {
+      if (nfHasVoted) return;
+      nfHasVoted = true;
+      vibrate(80);
+      socket.emit('day-vote', { targetId: 'skip' });
+      showScreen('nf-voted');
+    });
+
+    // NF play again
+    document.getElementById('btn-nf-phone-again').addEventListener('click', () => {
+      socket.emit('play-again');
+    });
+
+    // Phone timer helper for NF
+    function startPhoneTimer(elementId, duration) {
+      clearInterval(phoneTimer);
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      let timeLeft = duration;
+      el.textContent = timeLeft + 's';
+      el.classList.remove('timer-urgent');
+      phoneTimer = setInterval(() => {
+        timeLeft--;
+        el.textContent = Math.max(0, timeLeft) + 's';
+        if (timeLeft <= 10) el.classList.add('timer-urgent');
+        if (timeLeft <= 0) clearInterval(phoneTimer);
+      }, 1000);
+    }
+
+    // Phone confetti helper for NF
+    function launchPhoneConfettiOnCanvas(canvas) {
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.display = 'block';
+      const ctx = canvas.getContext('2d');
+      const colors = ['#506be6', '#764ba2', '#ffd700', '#ff6b6b', '#48dbfb', '#ff9ff3', '#00d2d3'];
+      const pieces = [];
+      for (let i = 0; i < 100; i++) {
+        pieces.push({
+          x: Math.random() * canvas.width, y: Math.random() * canvas.height - canvas.height,
+          w: Math.random() * 10 + 4, h: Math.random() * 6 + 3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          vx: (Math.random() - 0.5) * 3, vy: Math.random() * 2.5 + 1.5,
+          rot: Math.random() * 360, rotSpeed: (Math.random() - 0.5) * 8,
+        });
+      }
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.x += p.vx; p.y += p.vy; p.rot += p.rotSpeed; p.vy += 0.04;
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+          ctx.fillStyle = p.color; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+        });
+        frame++;
+        if (frame < 250) requestAnimationFrame(animate);
+        else canvas.style.display = 'none';
+      }
+      animate();
+    }
 
     // Submit answer
     document.getElementById('btn-submit').addEventListener('click', () => {
@@ -1216,11 +1779,19 @@
       // Host: update start button
       if (!isHost) return;
       const btn = document.getElementById('btn-host-start');
-      btn.disabled = players.length < 3;
-      document.getElementById('host-lobby-status').textContent =
-        players.length < 3
-          ? `Need at least 3 players (${players.length} joined)`
-          : `${players.length} players ready!`;
+      const minPlayers = currentGameMode === 'night-falls' ? 5 : 3;
+      btn.disabled = players.length < minPlayers;
+      if (currentGameMode === 'night-falls') {
+        document.getElementById('host-lobby-status').textContent =
+          players.length < 5
+            ? `Need at least 5 players (${players.length} joined)`
+            : `🐺 ${players.length} players ready!`;
+      } else {
+        document.getElementById('host-lobby-status').textContent =
+          players.length < 3
+            ? `Need at least 3 players (${players.length} joined)`
+            : `${players.length} players ready!`;
+      }
     });
 
     // Host: round picker

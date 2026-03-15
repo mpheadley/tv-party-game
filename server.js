@@ -540,9 +540,13 @@ io.on('connection', (socket) => {
       const nonDrawerCount = Object.keys(room.players).length - 1;
       const guessedCount = Object.keys(room.guesses).length;
 
+      const pendingGuess = Object.keys(room.players)
+        .filter(id => id !== room.currentDrawer && !room.guesses[id])
+        .map(id => room.players[id].name);
       emitToRoom(room, 'answer-progress', {
         answered: guessedCount,
         total: nonDrawerCount,
+        pending: pendingGuess,
       });
 
       if (guessedCount >= nonDrawerCount) {
@@ -569,9 +573,13 @@ io.on('connection', (socket) => {
       socket.emit('answer-received');
       emitToRoom(room, 'sound', 'submit');
 
+      const pendingAnswer = Object.keys(room.players)
+        .filter(id => !room.answers[id])
+        .map(id => room.players[id].name);
       emitToRoom(room, 'answer-progress', {
         answered: Object.keys(room.answers).length,
         total: Object.keys(room.players).length,
+        pending: pendingAnswer,
       });
 
       if (gameLogic.checkAllAnswered(room)) {
@@ -666,9 +674,13 @@ io.on('connection', (socket) => {
       room.votes[socket.id] = data;
       socket.emit('vote-received');
 
+      const pendingVote = Object.keys(room.players)
+        .filter(id => !room.votes[id])
+        .map(id => room.players[id].name);
       emitToRoom(room, 'vote-progress', {
         voted: Object.keys(room.votes).length,
         total: Object.keys(room.players).length,
+        pending: pendingVote,
       });
 
       if (gameLogic.checkAllVoted(room)) {

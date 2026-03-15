@@ -11,6 +11,8 @@
 
   <!-- Persistent room code floating badge (visible during gameplay) -->
   <button id="floating-room-badge" class="floating-room-badge" style="display:none;" aria-label="Show room QR code"></button>
+  <!-- Mute toggle -->
+  <button id="btn-mute" class="floating-mute-btn" aria-label="Toggle sound">🔊</button>
 
   <!-- QR Code Modal -->
   <div id="qr-modal" class="modal hidden" role="dialog" aria-label="Room invite">
@@ -154,7 +156,8 @@
   <div id="screen-answered" class="phone-container hidden">
     <p class="waiting-msg">Answer submitted!</p>
     <p class="status" id="my-answer-note" style="color:#506be6; font-style:italic; margin-top:1rem;"></p>
-    <p class="status">Waiting for everyone else...</p>
+    <p class="status" id="answer-waiting-status">Waiting for everyone else...</p>
+    <p class="pending-names" id="answer-pending-names"></p>
   </div>
 
   <!-- VOTE -->
@@ -168,7 +171,8 @@
   <!-- VOTE SUBMITTED -->
   <div id="screen-voted" class="phone-container hidden">
     <p class="waiting-msg">Vote cast!</p>
-    <p class="status">Results coming up on the TV...</p>
+    <p class="status" id="vote-waiting-status">Waiting for everyone else...</p>
+    <p class="pending-names" id="vote-pending-names"></p>
   </div>
 
   <!-- RESULTS / BETWEEN ROUNDS -->
@@ -279,6 +283,18 @@
     let lastX = 0;
     let lastY = 0;
 
+    // ── Sound & Mute ──
+    let isMuted = localStorage.getItem('hottake-muted') === 'true';
+    const muteBtn = document.getElementById('btn-mute');
+    muteBtn.textContent = isMuted ? '🔇' : '🔊';
+
+    muteBtn.addEventListener('click', () => {
+      isMuted = !isMuted;
+      localStorage.setItem('hottake-muted', isMuted);
+      muteBtn.textContent = isMuted ? '🔇' : '🔊';
+      if (isMuted && 'speechSynthesis' in window) speechSynthesis.cancel();
+    });
+
     // ── Sound Effects (Web Audio API) ──
     let audioCtx = null;
 
@@ -290,6 +306,7 @@
     }
 
     function playSound(type) {
+      if (isMuted) return;
       ensureAudio();
       if (!audioCtx) return;
 
@@ -369,6 +386,26 @@
     // Haptic feedback
     function vibrate(pattern) {
       if (navigator.vibrate) navigator.vibrate(pattern);
+    }
+
+    // ── Text-to-Speech (host only, phone-only mode) ──
+    let cachedVoices = [];
+    if ('speechSynthesis' in window) {
+      cachedVoices = speechSynthesis.getVoices();
+      speechSynthesis.addEventListener('voiceschanged', () => {
+        cachedVoices = speechSynthesis.getVoices();
+      });
+    }
+
+    function speakPrompt(text) {
+      if (isMuted || !isHost || !('speechSynthesis' in window)) return;
+      speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.9;
+      utter.pitch = 0.8;
+      const funVoice = cachedVoices.find(v => /Daniel|Samantha|Alex|Fred|Zarvox|Trinoids/i.test(v.name));
+      if (funVoice) utter.voice = funVoice;
+      speechSynthesis.speak(utter);
     }
 
     // Screens
@@ -723,6 +760,9 @@
       emojiPicker.appendChild(btn);
     });
 
+    // Auto-focus name input on load
+    setTimeout(() => document.getElementById('name-input').focus(), 300);
+
     // Join
     const nameInput = document.getElementById('name-input');
     const btnJoin = document.getElementById('btn-join');
@@ -875,6 +915,7 @@
           }
 
           vibrate(200);
+          speakPrompt(data.prompt);
 
           // Animate phone timer bar
           const timerFill = document.getElementById('phone-timer-fill');
@@ -1004,6 +1045,7 @@
         case 'results':
           showScreen('roundEnd');
           playSound('reveal');
+          vibrate([50, 100]);
           document.getElementById('phone-round-label').textContent =
             `Round ${data.round} of ${data.totalRounds}`;
           document.getElementById('phone-commentary').textContent = data.commentary || '';
@@ -1089,8 +1131,30 @@
       showScreen('answered');
     });
 
+    socket.on('answer-progress', (data) => {
+      const statusEl = document.getElementById('answer-waiting-status');
+      const namesEl = document.getElementById('answer-pending-names');
+      if (statusEl) statusEl.textContent = `${data.answered}/${data.total} answered`;
+      if (namesEl && data.pending && data.pending.length > 0) {
+        namesEl.textContent = `Waiting for: ${data.pending.join(', ')}`;
+      } else if (namesEl) {
+        namesEl.textContent = '';
+      }
+    });
+
     socket.on('vote-received', () => {
       showScreen('voted');
+    });
+
+    socket.on('vote-progress', (data) => {
+      const statusEl = document.getElementById('vote-waiting-status');
+      const namesEl = document.getElementById('vote-pending-names');
+      if (statusEl) statusEl.textContent = `${data.voted}/${data.total} voted`;
+      if (namesEl && data.pending && data.pending.length > 0) {
+        namesEl.textContent = `Waiting for: ${data.pending.join(', ')}`;
+      } else if (namesEl) {
+        namesEl.textContent = '';
+      }
     });
 
     // Update emoji picker and phone player list

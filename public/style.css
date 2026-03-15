@@ -1254,6 +1254,37 @@ button:active {
   font-size: 0.9rem;
 }
 
+/* ── Casting Help ── */
+.casting-help {
+  margin: 1rem 0;
+  color: #888;
+  font-size: 0.9rem;
+  max-width: 500px;
+}
+
+.casting-help summary {
+  cursor: pointer;
+  color: #506be6;
+  font-size: 0.95rem;
+}
+
+.casting-help summary:hover {
+  text-decoration: underline;
+}
+
+.casting-steps {
+  text-align: left;
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.casting-steps p {
+  margin: 0;
+  line-height: 1.4;
+}
+
 /* ── Room Code Display ── */
 .room-code-display {
   display: flex;
@@ -1301,6 +1332,14 @@ button:active {
   padding: 0.3rem 0.75rem;
   font-size: 0.85rem;
   animation: popIn 0.3s ease-out;
+}
+
+/* ── Pending Names ── */
+.pending-names {
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: 0.5rem;
+  font-style: italic;
 }
 
 /* ── Phone Timer Bar ── */
@@ -1410,6 +1449,33 @@ button:active {
 .floating-room-badge:active {
   opacity: 1;
   transform: scale(1.05);
+}
+
+/* ── Mute Toggle ── */
+.floating-mute-btn {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  background: #1a1a2e;
+  border: 1px solid #333;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.floating-mute-btn:hover,
+.floating-mute-btn:active {
+  opacity: 1;
 }
 
 /* ── QR Modal ── */

@@ -60,15 +60,15 @@
       <div class="landing-steps">
         <div class="landing-step">
           <div class="step-number">1</div>
-          <div class="step-text"><strong>Create a room</strong> and share the 4-letter code with your group 🔗</div>
+          <div class="step-text"><strong>Create a room</strong> on your computer or cast it to your TV 📺</div>
         </div>
         <div class="landing-step">
           <div class="step-number">2</div>
-          <div class="step-text"><strong>Everyone joins</strong> on their phone — no app needed 📲</div>
+          <div class="step-text"><strong>Everyone joins</strong> on their phone using the QR code 📲</div>
         </div>
         <div class="landing-step">
           <div class="step-number">3</div>
-          <div class="step-text"><strong>Pick a game</strong> in the lobby and start playing 🎮</div>
+          <div class="step-text"><strong>Pick a game</strong> and start playing — no app needed 🎮</div>
         </div>
         <div class="landing-step">
           <div class="step-number">4</div>
@@ -109,7 +109,8 @@
       codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z]/g, '');
     });
 
-    // Create room → go to phone.html as host (phone-only by default)
+    // Create room → desktop goes to TV display, mobile goes to phone (host)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     document.getElementById('btn-create-room').addEventListener('click', async () => {
       const btn = document.getElementById('btn-create-room');
       btn.disabled = true;
@@ -119,7 +120,11 @@
         const res = await fetch(url, { method: 'POST' });
         const data = await res.json();
         if (data.code) {
-          window.location.href = `/phone.html?room=${data.code}`;
+          if (isMobile) {
+            window.location.href = `/phone.html?room=${data.code}`;
+          } else {
+            window.location.href = `/tv.html?room=${data.code}`;
+          }
         }
       } catch (e) {
         btn.disabled = false;

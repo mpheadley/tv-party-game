@@ -11,6 +11,7 @@
   let isTestMode = false;
   let myToken = sessionStorage.getItem('hottake-token');
   let currentGameMode = 'hot-take';
+  let tvConnected = false;
 
   // Room code from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -189,6 +190,11 @@
     socket.emit('answer', guess);
     showScreen('answered');
   }
+
+  // ── TV Status ──
+  socket.on('tv-status', (data) => {
+    tvConnected = data.connected;
+  });
 
   // ── Game Mode Display ──
   socket.on('game-mode-updated', (mode) => {
@@ -424,7 +430,11 @@
     showScreen('team-select');
   }
 
-  socket.on('host-assigned', () => { setHost(); });
+  socket.on('host-assigned', (data) => {
+    // If broadcast with hostId (from reconnection handler), only the new host should activate
+    if (data && data.hostId && data.hostId !== myId) return;
+    setHost();
+  });
 
   function setHost() {
     isHost = true;
@@ -506,7 +516,10 @@
                   drawTimerEl.classList.add('timer-urgent');
                   if (drawTimeLeft > 0) { vibrate(50); playSound('tick'); }
                 }
-                if (drawTimeLeft <= 0) clearInterval(phoneTimer);
+                if (drawTimeLeft <= 0) {
+                  clearInterval(phoneTimer);
+                  if (!hasSubmitted) Drawing.submitDrawing();
+                }
               }, 1000);
             }
           } else {
@@ -707,21 +720,6 @@
             </div>`;
           }).join('');
         }
-
-        const resultsEl = document.getElementById('phone-results');
-        resultsEl.innerHTML = data.results.map(r => {
-          const isImage = r.text && r.text.startsWith('data:image');
-          const metaLine = r.isDrawing
-            ? `<div class="phone-result-meta">${r.avatar} ${escapeHtml(r.author)} — 🎨 The Drawing</div>`
-            : `<div class="phone-result-meta">${r.avatar} ${escapeHtml(r.author)} — ${'⭐'.repeat(Math.max(0, r.votes))}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>`;
-          return `<div class="phone-result-card">
-            ${isImage
-              ? `<img src="${r.text}" alt="Drawing" style="max-width:100%; height:auto; border-radius:0.5rem; margin-bottom:0.5rem;">`
-              : `<div class="phone-result-text">"${escapeHtml(r.text)}"</div>`
-            }
-            ${metaLine}
-          </div>`;
-        }).join('');
 
         const myScore = data.scoreboard.find(p => p.id === myId);
         document.getElementById('phone-score').textContent =
@@ -1244,8 +1242,28 @@
     });
   });
 
-  document.getElementById('btn-host-start').addEventListener('click', () => {
+  function startGame() {
     socket.emit('start-game', selectedRounds);
+  }
+
+  document.getElementById('btn-host-start').addEventListener('click', () => {
+    if (tvConnected) {
+      startGame();
+    } else {
+      document.getElementById('tv-prompt-modal').classList.remove('hidden');
+    }
+  });
+
+  document.getElementById('btn-tv-open-start').addEventListener('click', () => {
+    document.getElementById('tv-prompt-modal').classList.add('hidden');
+    window.open(`/tv.html?room=${roomCode}`, '_blank');
+    // Give TV a moment to connect before starting
+    setTimeout(startGame, 1500);
+  });
+
+  document.getElementById('btn-tv-skip-start').addEventListener('click', () => {
+    document.getElementById('tv-prompt-modal').classList.add('hidden');
+    startGame();
   });
 
   document.getElementById('btn-host-next').addEventListener('click', () => {
@@ -1270,6 +1288,132 @@
     hasSubmitted = false;
     clearInterval(phoneTimer);
     showScreen('join');
+  });
+
+  // ── Host Lobby: Game Settings ──
+  document.getElementById('btn-phone-settings').addEventListener('click', () => {
+    document.getElementById('phone-settings-modal').classList.remove('hidden');
+  });
+  document.getElementById('btn-close-phone-settings').addEventListener('click', () => {
+    document.getElementById('phone-settings-modal').classList.add('hidden');
+  });
+  document.getElementById('phone-round-time-slider').addEventListener('input', (e) => {
+    document.getElementById('phone-round-time-display').textContent = e.target.value;
+    socket.emit('update-settings', { roundTime: parseInt(e.target.value) });
+  });
+  document.getElementById('phone-vote-time-slider').addEventListener('input', (e) => {
+    document.getElementById('phone-vote-time-display').textContent = e.target.value;
+    socket.emit('update-settings', { voteTime: parseInt(e.target.value) });
+  });
+  document.getElementById('phone-total-rounds-slider').addEventListener('input', (e) => {
+    document.getElementById('phone-total-rounds-display').textContent = e.target.value;
+    socket.emit('update-settings', { totalRounds: parseInt(e.target.value) });
+  });
+
+  // Sync settings from server (when TV or another host changes them)
+  socket.on('settings-updated', (settings) => {
+    if (settings.roundTime) {
+      document.getElementById('phone-round-time-slider').value = settings.roundTime;
+      document.getElementById('phone-round-time-display').textContent = settings.roundTime;
+    }
+    if (settings.voteTime) {
+      document.getElementById('phone-vote-time-slider').value = settings.voteTime;
+      document.getElementById('phone-vote-time-display').textContent = settings.voteTime;
+    }
+    if (settings.totalRounds) {
+      document.getElementById('phone-total-rounds-slider').value = settings.totalRounds;
+      document.getElementById('phone-total-rounds-display').textContent = settings.totalRounds;
+    }
+  });
+
+  // ── Host Lobby: Teams ──
+  document.getElementById('btn-phone-teams').addEventListener('click', () => {
+    document.getElementById('phone-teams-modal').classList.remove('hidden');
+  });
+  document.getElementById('btn-close-phone-teams').addEventListener('click', () => {
+    document.getElementById('phone-teams-modal').classList.add('hidden');
+  });
+  let phoneTeamMode = false;
+  let phoneTeamCount = 2;
+  document.querySelectorAll('input[name="phone-team-mode"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      phoneTeamMode = e.target.value === 'teams';
+      document.getElementById('phone-team-count-section').style.display = phoneTeamMode ? 'block' : 'none';
+      socket.emit('set-team-mode', { teamMode: phoneTeamMode, teamCount: phoneTeamCount });
+    });
+  });
+  document.getElementById('phone-team-count-slider').addEventListener('input', (e) => {
+    phoneTeamCount = parseInt(e.target.value);
+    document.getElementById('phone-team-count-display').textContent = phoneTeamCount;
+    if (phoneTeamMode) {
+      socket.emit('set-team-mode', { teamMode: phoneTeamMode, teamCount: phoneTeamCount });
+    }
+  });
+  socket.on('team-mode-updated', (data) => {
+    phoneTeamMode = data.teamMode;
+    phoneTeamCount = data.teamCount;
+    const radio = document.querySelector(`input[name="phone-team-mode"][value="${data.teamMode ? 'teams' : 'solo'}"]`);
+    if (radio) radio.checked = true;
+    document.getElementById('phone-team-count-slider').value = phoneTeamCount;
+    document.getElementById('phone-team-count-display').textContent = phoneTeamCount;
+    document.getElementById('phone-team-count-section').style.display = data.teamMode ? 'block' : 'none';
+  });
+
+  // ── Host Lobby: Manage Prompts ──
+  document.getElementById('btn-phone-prompts').addEventListener('click', () => {
+    document.getElementById('phone-prompts-modal').classList.remove('hidden');
+  });
+  document.getElementById('btn-close-phone-prompts').addEventListener('click', () => {
+    document.getElementById('phone-prompts-modal').classList.add('hidden');
+  });
+  document.getElementById('btn-phone-add-prompt').addEventListener('click', () => {
+    const input = document.getElementById('phone-prompt-input');
+    const text = input.value.trim();
+    if (text.length > 0) {
+      socket.emit('add-custom-prompt', text);
+      input.value = '';
+    }
+  });
+  document.getElementById('phone-prompt-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-phone-add-prompt').click();
+  });
+  socket.on('custom-prompts-update', (prompts) => {
+    const list = document.getElementById('phone-prompts-list');
+    if (prompts.length === 0) {
+      list.innerHTML = '<p style="opacity:0.5; text-align:center;">No custom prompts yet</p>';
+    } else {
+      list.innerHTML = prompts.map((p, i) =>
+        `<div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem; background:#1a1a2e; border:1px solid #333; border-radius:0.3rem; margin:0.3rem 0; color:#e8e8e8;">
+          <span style="flex:1; font-size:0.9rem;">${escapeHtml(p)}</span>
+          <button class="btn-phone-remove-prompt" data-index="${i}" style="background:none; border:none; color:#ff6b6b; cursor:pointer; font-size:1.1rem; padding:0 0.5rem;">✕</button>
+        </div>`
+      ).join('');
+      list.querySelectorAll('.btn-phone-remove-prompt').forEach(btn => {
+        btn.addEventListener('click', () => {
+          socket.emit('remove-custom-prompt', parseInt(btn.dataset.index));
+        });
+      });
+    }
+  });
+
+  // ── Host Lobby: Add Bots ──
+  document.getElementById('btn-phone-bots').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-phone-bots');
+    const count = prompt('How many bots? (1-12)', '3');
+    if (!count) return;
+    btn.disabled = true;
+    btn.textContent = '🤖 Adding...';
+    try {
+      const resp = await fetch(`/api/add-bots?room=${roomCode}&count=${parseInt(count) || 3}`, { method: 'POST' });
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      btn.textContent = `🤖 ${data.added} Bots Added`;
+      setTimeout(() => { btn.textContent = '🤖 Add Bots'; btn.disabled = false; }, 3000);
+    } catch (e) {
+      btn.textContent = '🤖 Add Bots';
+      btn.disabled = false;
+      alert('Failed to add bots: ' + e.message);
+    }
   });
 
   // ── Helpers ──

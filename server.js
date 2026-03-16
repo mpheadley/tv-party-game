@@ -279,6 +279,9 @@ io.on('connection', (socket) => {
         estimatedDuration: settingsModule.getEstimatedDuration(room.customSettings),
       },
     });
+
+    // Notify players that TV is connected
+    emitToRoom(room, 'tv-status', { connected: true });
   });
 
   // Player reconnects with token
@@ -1096,6 +1099,7 @@ io.on('connection', (socket) => {
       if (socket.id === room.tvSocket) {
         room.tvSocket = null;
         console.log(`📺 TV disconnected from room ${socketRoom}`);
+        emitToRoom(room, 'tv-status', { connected: false });
       }
 
       const player = room.players[socket.id];

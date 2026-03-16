@@ -16,6 +16,79 @@
   <!-- Exit Game -->
   <button id="btn-exit-game" class="floating-exit-btn hidden" aria-label="Exit game">✕</button>
 
+  <!-- TV Prompt Modal (shown when host starts without TV) -->
+  <div id="tv-prompt-modal" class="modal hidden" role="dialog" aria-label="TV display options">
+    <div class="modal-content" style="max-width:360px; text-align:center;">
+      <h2 style="margin-bottom:0.5rem;">📺 Open TV Display?</h2>
+      <p style="color:#aaa; font-size:0.9rem; margin-bottom:1.5rem;">A TV display shows prompts, votes, and scores on a big screen. You can also play phone-only.</p>
+      <div style="display:flex; flex-direction:column; gap:0.75rem;">
+        <button id="btn-tv-open-start" class="btn-host" style="font-size:1rem;">📺 Open TV &amp; Start</button>
+        <button id="btn-tv-skip-start" class="btn-secondary" style="font-size:1rem;">📱 Play Without TV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Settings Modal -->
+  <div id="phone-settings-modal" class="modal hidden" role="dialog" aria-label="Game settings">
+    <div class="modal-content" style="max-width:360px;">
+      <h2>⏱️ Game Settings</h2>
+      <div class="setting-group" style="margin:1rem 0;">
+        <label>Answer Time: <span id="phone-round-time-display">60</span>s</label>
+        <input type="range" id="phone-round-time-slider" min="20" max="180" value="60" style="width:100%;">
+        <p style="opacity:0.6; font-size:0.85rem;">How long to answer (20-180s)</p>
+      </div>
+      <div class="setting-group" style="margin:1rem 0;">
+        <label>Vote Time: <span id="phone-vote-time-display">20</span>s</label>
+        <input type="range" id="phone-vote-time-slider" min="10" max="60" value="20" style="width:100%;">
+        <p style="opacity:0.6; font-size:0.85rem;">How long to vote (10-60s)</p>
+      </div>
+      <div class="setting-group" style="margin:1rem 0;">
+        <label>Total Rounds: <span id="phone-total-rounds-display">10</span></label>
+        <input type="range" id="phone-total-rounds-slider" min="3" max="20" value="10" style="width:100%;">
+        <p style="opacity:0.6; font-size:0.85rem;">Number of rounds (3-20)</p>
+      </div>
+      <button id="btn-close-phone-settings" class="btn-host" style="width:100%; margin-top:1rem;">Done</button>
+    </div>
+  </div>
+
+  <!-- Teams Modal -->
+  <div id="phone-teams-modal" class="modal hidden" role="dialog" aria-label="Team settings">
+    <div class="modal-content" style="max-width:360px;">
+      <h2>👥 Game Mode</h2>
+      <div style="margin:1.5rem 0;">
+        <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer; padding:0.75rem; background:#1a1a2e; border:1px solid #333; border-radius:0.5rem; margin-bottom:0.75rem; color:#e8e8e8;">
+          <input type="radio" name="phone-team-mode" value="solo" checked>
+          <span><strong>Solo Mode</strong><br><span style="opacity:0.6; font-size:0.85rem;">Everyone plays for themselves</span></span>
+        </label>
+        <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer; padding:0.75rem; background:#1a1a2e; border:1px solid #333; border-radius:0.5rem; color:#e8e8e8;">
+          <input type="radio" name="phone-team-mode" value="teams">
+          <span><strong>Team Mode</strong><br><span style="opacity:0.6; font-size:0.85rem;">Players divided into teams</span></span>
+        </label>
+      </div>
+      <div id="phone-team-count-section" style="display:none; margin:1rem 0;">
+        <label>Number of Teams: <span id="phone-team-count-display">2</span></label>
+        <input type="range" id="phone-team-count-slider" min="2" max="6" value="2" style="width:100%;">
+      </div>
+      <button id="btn-close-phone-teams" class="btn-host" style="width:100%; margin-top:1rem;">Done</button>
+    </div>
+  </div>
+
+  <!-- Manage Prompts Modal -->
+  <div id="phone-prompts-modal" class="modal hidden" role="dialog" aria-label="Custom prompts">
+    <div class="modal-content" style="max-width:360px;">
+      <h2>📝 Custom Prompts</h2>
+      <p style="opacity:0.7; font-size:0.85rem;">Add your own prompts (max 50, 5-200 chars)</p>
+      <div style="display:flex; gap:0.5rem; margin:1rem 0;">
+        <input type="text" id="phone-prompt-input" placeholder="Type a prompt..." maxlength="200" style="flex:1; padding:0.5rem; border:1px solid #333; border-radius:4px; background:#1a1a2e; color:#e8e8e8;">
+        <button id="btn-phone-add-prompt" class="btn-host" style="margin:0; padding:0.5rem 1rem;">Add</button>
+      </div>
+      <div id="phone-prompts-list" style="max-height:250px; overflow-y:auto;">
+        <p style="opacity:0.5; text-align:center;">No custom prompts yet</p>
+      </div>
+      <button id="btn-close-phone-prompts" class="btn-host" style="width:100%; margin-top:1rem;">Done</button>
+    </div>
+  </div>
+
   <!-- QR Code Modal -->
   <div id="qr-modal" class="modal hidden" role="dialog" aria-label="Room invite">
     <div class="modal-content qr-modal-content">
@@ -91,6 +164,12 @@
         <button class="phone-round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>
         <button class="phone-round-option" data-rounds="15">Long<br><span>~22 min</span></button>
       </div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:0.75rem;">
+        <button class="btn-secondary" id="btn-phone-settings">⏱️ Game Settings</button>
+        <button class="btn-secondary" id="btn-phone-teams">👥 Teams</button>
+        <button class="btn-secondary" id="btn-phone-prompts">⚙️ Manage Prompts</button>
+        <button class="btn-secondary" id="btn-phone-bots">🤖 Add Bots</button>
+      </div>
       <button class="btn-host" id="btn-host-start" disabled>🚀 Start Game</button>
       <p class="status" id="host-lobby-status">⏳ Waiting for players...</p>
     </div>
@@ -104,7 +183,7 @@
     <!-- Phone-only: player list in lobby -->
     <div class="phone-player-list" id="phone-player-list"></div>
     <!-- Host: link to open TV display -->
-    <a id="tv-link" class="tv-link" style="display:none;" target="_blank">Open TV Display</a>
+    <a id="tv-link" class="btn-secondary tv-link-btn" style="display:none;" target="_blank">📺 Open TV Display</a>
   </div>
 
   <!-- ANSWER PROMPT (Text) -->
@@ -192,7 +271,6 @@
     <p class="round-label" id="phone-round-label"></p>
     <p class="snarky-commentary" id="phone-commentary"></p>
     <div class="phone-reveal-cards" id="phone-reveal-cards"></div>
-    <div class="phone-results" id="phone-results"></div>
     <p class="status" id="phone-score" style="margin-top:1rem; font-size:1.4rem; color:#506be6; font-weight:bold;"></p>
     <div class="phone-scoreboard" id="phone-scoreboard"></div>
     <button class="btn-host host-only hidden" id="btn-host-next" style="margin-top:1rem;">Next Round</button>

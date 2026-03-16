@@ -1711,17 +1711,14 @@ button:active {
   transform: scale(1.02);
 }
 
-/* ── TV Link ── */
-.tv-link {
+/* ── TV Link (button style) ── */
+.tv-link-btn {
   display: inline-block;
   margin-top: 1rem;
-  color: #506be6;
-  font-size: 0.9rem;
-  text-decoration: underline;
-  opacity: 0.7;
+  text-decoration: none;
+  text-align: center;
+  width: 100%;
 }
-
-.tv-link:hover { opacity: 1; }
 
 /* Skip link */
 .skip-link {

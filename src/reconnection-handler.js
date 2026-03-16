@@ -302,7 +302,9 @@ function handlePlayerDisconnect(socket, game, playersByToken, io, reconnectionMa
       const remainingIds = Object.keys(game.players);
       if (remainingIds.length > 0) {
         game.hostSocket = remainingIds[0];
-        io.to(game.hostSocket).emit('host-assigned');
+        // io here is a wrapper { emit }, not the real socket.io instance,
+        // so broadcast host-assigned to all and let clients check their own ID
+        io.emit('host-assigned', { hostId: game.hostSocket });
         console.log(`👑 Host transferred to ${game.players[game.hostSocket].name}`);
       } else {
         game.hostSocket = null;

@@ -19,6 +19,14 @@ body {
   overflow-y: auto;
 }
 
+/* TV game screens: fit viewport, no scrolling */
+.tv-container.tv-fit {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 1.5rem 2rem;
+}
+
 .tv-container h1 {
   font-size: 4rem;
   background: linear-gradient(135deg, #506be6, #764ba2);
@@ -132,6 +140,32 @@ body {
   justify-content: center;
   margin: 2rem 0;
   max-width: 90vw;
+}
+
+/* Within tv-fit screens, allow grid to shrink */
+.tv-fit .answers-grid {
+  flex: 1 1 auto;
+  overflow: hidden;
+  margin: 1rem 0;
+  align-content: center;
+}
+
+.tv-fit .answer-card {
+  min-width: 0;
+  flex: 1 1 200px;
+  max-width: 400px;
+  padding: 1rem 1.5rem;
+  font-size: 1.4rem;
+}
+
+.tv-fit .answer-card .answer-text {
+  font-size: 1.4rem;
+}
+
+.tv-fit .scoreboard {
+  flex: 0 1 auto;
+  overflow: hidden;
+  max-height: 30vh;
 }
 
 .answer-card {
@@ -927,6 +961,16 @@ body {
 
 .drawing-card img {
   display: block;
+}
+
+.tv-fit .drawing-card {
+  max-height: 40vh;
+}
+
+.tv-fit .drawing-card img {
+  max-height: 30vh;
+  width: auto;
+  object-fit: contain;
 }
 
 /* Screen header for mode indicator */

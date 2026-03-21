@@ -16,17 +16,6 @@
   <!-- Exit Game -->
   <button id="btn-exit-game" class="floating-exit-btn hidden" aria-label="Exit game">✕</button>
 
-  <!-- TV Prompt Modal (shown when host starts without TV) -->
-  <div id="tv-prompt-modal" class="modal hidden" role="dialog" aria-label="TV display options">
-    <div class="modal-content" style="max-width:360px; text-align:center;">
-      <h2 style="margin-bottom:0.5rem;">📺 Open TV Display?</h2>
-      <p style="color:#aaa; font-size:0.9rem; margin-bottom:1.5rem;">A TV display shows prompts, votes, and scores on a big screen. You can also play phone-only.</p>
-      <div style="display:flex; flex-direction:column; gap:0.75rem;">
-        <button id="btn-tv-open-start" class="btn-host" style="font-size:1rem;">📺 Open TV &amp; Start</button>
-        <button id="btn-tv-skip-start" class="btn-secondary" style="font-size:1rem;">📱 Play Without TV</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Game Settings Modal -->
   <div id="phone-settings-modal" class="modal hidden" role="dialog" aria-label="Game settings">
@@ -142,7 +131,7 @@
   <div id="screen-waiting" class="phone-container hidden">
     <div id="game-mode-indicator" style="text-align:center; margin-bottom:1rem; padding:0.5rem; background:#1a1a2e; border:1px solid #333; border-radius:0.5rem;">
       <p style="margin:0; opacity:0.7; font-size:0.9rem; color:#ccc;">Game Mode</p>
-      <p id="current-mode-display" style="margin:0.5rem 0 0; font-size:1.2rem; font-weight:bold; color:#e8e8e8;">🔥 Hot Take</p>
+      <p id="current-mode-display" style="margin:0.5rem 0 0; font-size:1.2rem; font-weight:bold; color:#e8e8e8;">🎨 Speed Drawing</p>
     </div>
     <div class="phone-avatar" id="my-avatar"></div>
     <h1>🎉 You're In!</h1>
@@ -150,15 +139,7 @@
     <!-- Host controls in lobby -->
     <div id="host-lobby-controls" class="host-controls hidden">
       <p class="host-label">You're the host!</p>
-      <div id="phone-mode-selector" style="margin-bottom:1rem;">
-        <p style="opacity:0.7; margin:0 0 0.5rem; font-size:0.9rem;">🎯 Game Mode:</p>
-        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center;">
-          <button class="mode-button selected" data-mode="hot-take">🔥 Hot Take</button>
-          <button class="mode-button" data-mode="speed-drawing">🎨 Speed Drawing</button>
-          <button class="mode-button" data-mode="pictionary">🎭 Pictionary</button>
-          <button class="mode-button" data-mode="night-falls">🐺 Night Falls</button>
-        </div>
-      </div>
+      <div id="phone-mode-selector" style="display:none;"></div>
       <div id="phone-round-picker" class="phone-round-picker">
         <button class="phone-round-option" data-rounds="5">Quick<br><span>~8 min</span></button>
         <button class="phone-round-option selected" data-rounds="10">Normal<br><span>~15 min</span></button>

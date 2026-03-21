@@ -140,6 +140,102 @@ const DRAWING_PROMPTS = [
   "Draw your WiFi dying at 1% battery",
   "Draw your last brain cell working",
   "Draw procrastination",
+
+  // Family / Home Life
+  "Draw bath time chaos",
+  "Draw a family road trip",
+  "Draw bedtime negotiations",
+  "Draw someone who can't find the remote",
+  "Draw Sunday morning",
+  "Draw a family dinner",
+  "Draw someone trying to be quiet at night",
+  "Draw the backseat on a long drive",
+  "Draw a broken appliance",
+  "Draw someone hogging the blanket",
+
+  // Food Cravings
+  "Draw a midnight snack",
+  "Draw cereal at 2am",
+  "Draw the last slice of pizza",
+  "Draw a burnt grilled cheese",
+  "Draw a bowl of cereal with no milk",
+  "Draw a snack you're not supposed to eat",
+  "Draw leftovers nobody wants",
+  "Draw eating in secret",
+  "Draw the good snacks hidden from the kids",
+  "Draw a drive-through order",
+
+  // Funny Situations
+  "Draw someone stepping on a Lego",
+  "Draw autocorrect gone wrong",
+  "Draw a Zoom call disaster",
+  "Draw forgetting your password",
+  "Draw walking into the wrong room",
+  "Draw sending a text to the wrong person",
+  "Draw being on hold for an hour",
+  "Draw a printer that won't work",
+  "Draw someone explaining something nobody asked about",
+  "Draw running late in slow motion",
+
+  // Relatable Feelings
+  "Draw FOMO",
+  "Draw nostalgia",
+  "Draw the Sunday scaries",
+  "Draw a decision you regret",
+  "Draw overthinking",
+  "Draw that feeling when the food arrives",
+  "Draw wanting to cancel plans",
+  "Draw realizing you forgot something important",
+  "Draw that 3pm slump",
+  "Draw waking up five minutes before your alarm",
+
+  // Animals Doing Human Things
+  "Draw a dog at a job interview",
+  "Draw a cat judging you",
+  "Draw a bear eating fast food",
+  "Draw a penguin commuting",
+  "Draw a raccoon in a trench coat",
+  "Draw a goose with a grievance",
+  "Draw a golden retriever giving a presentation",
+  "Draw a crab working from home",
+  "Draw a crow stealing your lunch",
+  "Draw a frog having an existential crisis",
+
+  // Tech & Modern Life
+  "Draw inbox zero",
+  "Draw a loading screen",
+  "Draw Bluetooth not connecting",
+  "Draw a notification you're ignoring",
+  "Draw a dead laptop charger",
+  "Draw autocomplete finishing your sentence wrong",
+  "Draw the algorithm deciding what you see",
+  "Draw a password reset email",
+  "Draw someone filming instead of enjoying the moment",
+  "Draw the group chat going off at midnight",
+
+  // Movement / Action
+  "Draw a dramatic exit",
+  "Draw slow motion",
+  "Draw an awkward hug",
+  "Draw tripping in public",
+  "Draw someone pretending to wave back at you",
+  "Draw a wrong turn",
+  "Draw sliding into home plate",
+  "Draw jumping into a pool",
+  "Draw sneaking downstairs on Christmas Eve",
+  "Draw doing the worm at a wedding",
+
+  // Abstract / Big Ideas
+  "Draw time",
+  "Draw a bad idea",
+  "Draw your comfort zone",
+  "Draw a missed opportunity",
+  "Draw getting older",
+  "Draw a plot twist",
+  "Draw the main character",
+  "Draw a villain origin story",
+  "Draw the final boss",
+  "Draw rock bottom (but make it funny)",
 ];
 
 /**

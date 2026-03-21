@@ -134,7 +134,10 @@ const Drawing = (() => {
   function submitDrawing() {
     if (_getHasSubmitted()) return;
     _setHasSubmitted(true);
-    document.getElementById('btn-submit-drawing').disabled = true;
+    const btn = document.getElementById('btn-submit-drawing');
+    btn.disabled = true;
+    btn.textContent = '✓ Submitted!';
+    btn.style.background = '#2a7a2a';
     const imageData = canvas.toDataURL('image/png');
     _socket.emit('answer', imageData);
     _onSubmit();

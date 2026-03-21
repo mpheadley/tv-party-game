@@ -3,114 +3,359 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Headley Party Games — Free Jackbox-Style Games</title>
-  <meta name="description" content="Free Jackbox-style party games for 3–16 players. Hot Take, Speed Drawing, Pictionary, and Night Falls. No app needed — just phones and a room code.">
+  <title>Bad Art Club — Free Family Drawing Game</title>
+  <meta name="description" content="The party game where terrible drawings win. Draw prompts on your phone, vote on the big screen. Free, no app needed, 3–16 players.">
   <meta name="robots" content="index, follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Bad Art Club Landing ── */
+    .bac-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Scattered background doodles */
+    .bac-page::before {
+      content: "✏️ 🎨 🖍️ ✏️ 🎨 🖌️ ✏️ 🖍️ 🎨";
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      font-size: 2.5rem;
+      letter-spacing: 3rem;
+      word-spacing: 3rem;
+      line-height: 5rem;
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 0;
+      padding: 2rem;
+      overflow: hidden;
+    }
+
+    /* ── Hero ── */
+    .bac-hero {
+      width: 100%;
+      max-width: 580px;
+      padding: 4rem 2rem 3rem;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .bac-eyebrow {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .bac-title {
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-size: clamp(3.2rem, 12vw, 5.5rem);
+      font-weight: 700;
+      color: #FFD60A;
+      line-height: 1;
+      letter-spacing: -1px;
+      margin-bottom: 1.25rem;
+      text-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+    }
+
+    .bac-tagline {
+      font-size: clamp(1rem, 3.5vw, 1.25rem);
+      color: #ccc;
+      margin-bottom: 0.5rem;
+      line-height: 1.5;
+    }
+
+    .bac-sub {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 3rem;
+    }
+
+    /* ── CTA ── */
+    .bac-btn-primary {
+      display: block;
+      width: 100%;
+      max-width: 340px;
+      margin: 0 auto 1.5rem;
+      padding: 1rem 2rem;
+      font-size: 1.25rem;
+      font-weight: 800;
+      font-family: inherit;
+      background: #FFD60A;
+      color: #0f0f23;
+      border: none;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      box-shadow: 4px 4px 0px #b89b00;
+      transition: transform 0.1s, box-shadow 0.1s;
+      letter-spacing: 0.3px;
+    }
+
+    .bac-btn-primary:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0px #b89b00;
+    }
+
+    .bac-btn-primary:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #b89b00;
+    }
+
+    .bac-btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 4px 4px 0px #b89b00;
+    }
+
+    .bac-divider {
+      font-size: 0.85rem;
+      color: #444;
+      margin: 0.5rem 0 1rem;
+    }
+
+    .bac-join-row {
+      display: flex;
+      gap: 0.5rem;
+      max-width: 340px;
+      margin: 0 auto;
+    }
+
+    .bac-code-input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 0.3em;
+      background: #1a1a2e;
+      border: 2px solid #2a2a4e;
+      border-radius: 0.5rem;
+      color: #e8e8e8;
+      text-transform: uppercase;
+      font-family: monospace;
+      transition: border-color 0.15s;
+    }
+
+    .bac-code-input:focus {
+      outline: none;
+      border-color: #FFD60A;
+    }
+
+    .bac-code-input::placeholder {
+      color: #444;
+      letter-spacing: 0.2em;
+    }
+
+    .bac-btn-join {
+      padding: 0.75rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      background: transparent;
+      color: #FFD60A;
+      border: 2px solid #FFD60A;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .bac-btn-join:hover {
+      background: #FFD60A;
+      color: #0f0f23;
+    }
+
+    /* ── How It Works ── */
+    .bac-steps {
+      width: 100%;
+      max-width: 580px;
+      padding: 1rem 2rem 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .bac-steps-label {
+      text-align: center;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #444;
+      margin-bottom: 1rem;
+    }
+
+    .bac-step {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      background: #13132a;
+      border: 1px solid #1e1e3e;
+      border-left: 4px solid #FFD60A;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .bac-step-icon {
+      font-size: 1.75rem;
+      flex-shrink: 0;
+      width: 2.5rem;
+      text-align: center;
+    }
+
+    .bac-step-body strong {
+      display: block;
+      color: #e8e8e8;
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .bac-step-body span {
+      font-size: 0.83rem;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    /* ── Footer ── */
+    .bac-footer {
+      width: 100%;
+      max-width: 580px;
+      padding: 2rem 2rem 3rem;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .bac-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .bac-tag {
+      font-size: 0.78rem;
+      color: #555;
+      background: #13132a;
+      border: 1px solid #1e1e3e;
+      border-radius: 2rem;
+      padding: 0.3rem 0.75rem;
+    }
+
+    .bac-credit {
+      font-size: 0.8rem;
+      color: #333;
+    }
+
+    .bac-credit a {
+      color: #444;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .bac-credit a:hover {
+      color: #FFD60A;
+    }
+
+    .bac-cold-note {
+      font-size: 0.75rem;
+      color: #333;
+      margin-bottom: 1rem;
+    }
+  </style>
 </head>
 <body>
 
   <a href="#main" class="skip-link">Skip to main content</a>
-  <main id="main">
-  <div class="landing">
-    <div class="landing-hero">
-      <h1>Headley Party Games</h1>
-      <p class="landing-tagline">Free party games for 3–16 players. No app needed.</p>
-    </div>
 
-    <div class="landing-actions">
-      <button class="landing-btn landing-btn-primary" id="btn-create-room">🎮 Create a Room</button>
-      <div class="landing-divider"><span>or join an existing room</span></div>
-      <div class="landing-join-row">
-        <input type="text" id="join-code-input" class="landing-code-input" placeholder="ABCD" maxlength="4" autocomplete="off" spellcheck="false" aria-label="Room code">
-        <button class="landing-btn-secondary" id="btn-join-room">👉 Join</button>
+  <main id="main" class="bac-page">
+
+    <!-- Hero -->
+    <div class="bac-hero">
+      <span class="bac-eyebrow">🎨</span>
+      <h1 class="bac-title">Bad Art Club</h1>
+      <p class="bac-tagline">The party game where terrible drawings win.</p>
+      <p class="bac-sub">Phones are the controllers. No app needed. No talent required.</p>
+
+      <button class="bac-btn-primary" id="btn-create-room">🎮 Create a Room</button>
+
+      <div class="bac-divider">or join with a room code</div>
+
+      <div class="bac-join-row">
+        <input
+          type="text"
+          id="join-code-input"
+          class="bac-code-input"
+          placeholder="ABCD"
+          maxlength="4"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="Room code"
+        >
+        <button class="bac-btn-join" id="btn-join-room">Join →</button>
       </div>
     </div>
 
-    <div class="landing-games">
-      <h2>🎲 Choose Your Game</h2>
-      <div class="landing-game-cards">
-        <div class="landing-game-card">
-          <div class="game-card-icon">🔥</div>
-          <h3>Hot Take</h3>
-          <p>Answer a spicy prompt — the funniest (worst?) answer wins. 3+ players.</p>
-        </div>
-        <div class="landing-game-card">
-          <div class="game-card-icon">🎨</div>
-          <h3>Speed Drawing</h3>
-          <p>Draw the prompt before time runs out. Everyone votes for the best art. 3+ players.</p>
-          <span class="game-card-tag">📺 TV Mode</span>
-        </div>
-        <div class="landing-game-card">
-          <div class="game-card-icon">✏️</div>
-          <h3>Pictionary</h3>
-          <p>One person draws, everyone else guesses. Classic party fun. 3+ players.</p>
-          <span class="game-card-tag">📺 TV Mode</span>
-        </div>
-        <div class="landing-game-card">
-          <div class="game-card-icon">🐺</div>
-          <h3>Night Falls</h3>
-          <p>Werewolf meets Mafia. Find the wolves before they eliminate everyone. 5+ players.</p>
+    <!-- How It Works -->
+    <div class="bac-steps">
+      <p class="bac-steps-label">How it works</p>
+
+      <div class="bac-step">
+        <div class="bac-step-icon">📺</div>
+        <div class="bac-step-body">
+          <strong>Cast to your TV</strong>
+          <span>Open on a laptop and mirror it to the big screen — Chrome, AirPlay, or HDMI</span>
         </div>
       </div>
-    </div>
 
-    <div class="landing-how">
-      <h2>🕹️ How to Play</h2>
-      <div class="landing-steps">
-        <div class="landing-step">
-          <div class="step-number">1</div>
-          <div class="step-text"><strong>Create a room</strong> on your computer or cast it to your TV 📺</div>
+      <div class="bac-step">
+        <div class="bac-step-icon">📲</div>
+        <div class="bac-step-body">
+          <strong>Everyone joins on their phone</strong>
+          <span>Scan the QR code on screen — no app, no login, just a browser</span>
         </div>
-        <div class="landing-step">
-          <div class="step-number">2</div>
-          <div class="step-text"><strong>Everyone joins</strong> on their phone using the QR code 📲</div>
-        </div>
-        <div class="landing-step">
-          <div class="step-number">3</div>
-          <div class="step-text"><strong>Pick a game</strong> and start playing — no app needed 🎮</div>
-        </div>
-        <div class="landing-step">
-          <div class="step-number">4</div>
-          <div class="step-text"><strong>Play round after round</strong> — switch games anytime 🔄</div>
+      </div>
+
+      <div class="bac-step">
+        <div class="bac-step-icon">🖍️</div>
+        <div class="bac-step-body">
+          <strong>Draw badly. Vote ruthlessly.</strong>
+          <span>Everyone gets the same prompt. The group picks the best worst drawing.</span>
         </div>
       </div>
     </div>
 
-    <div class="landing-modes">
-      <h2>✌️ Two Ways to Play</h2>
-      <div class="landing-mode-cards">
-        <div class="landing-mode-card">
-          <div class="mode-icon">📺</div>
-          <h3>TV Mode</h3>
-          <p>Cast a laptop to your TV for the full Jackbox-style experience. Prompts and results on the big screen, everyone plays on their phones.</p>
-        </div>
-        <div class="landing-mode-card">
-          <div class="mode-icon">📱</div>
-          <h3>Phone-Only Mode</h3>
-          <p>No TV? No problem. The whole game runs on your phone.</p>
-        </div>
+    <!-- Footer -->
+    <div class="bac-footer">
+      <div class="bac-tags">
+        <span class="bac-tag">3–16 players</span>
+        <span class="bac-tag">Ages 9+</span>
+        <span class="bac-tag">Free</span>
+        <span class="bac-tag">No download</span>
       </div>
+      <p class="bac-cold-note">First load may be slow — server wakes up after inactivity.</p>
+      <p class="bac-credit">Built by <a href="https://headleyweb.com" target="_blank" rel="noopener">Headley Web</a></p>
     </div>
 
-    <div class="landing-footer">
-      <p>👥 3–16 players &bull; 🎂 Ages 9+ &bull; 🆓 Free &bull; 📲 No app download</p>
-      <p class="landing-credit">Built by <a href="https://headleyweb.com" target="_blank" rel="noopener">Headley Web</a></p>
-    </div>
-  </div>
   </main>
 
   <script>
     const codeInput = document.getElementById('join-code-input');
     const isTestMode = new URLSearchParams(window.location.search).has('test');
 
-    // Auto-uppercase the room code input
     codeInput.addEventListener('input', () => {
       codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z]/g, '');
     });
 
-    // Create room → desktop goes to TV display, mobile goes to phone (host)
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
     document.getElementById('btn-create-room').addEventListener('click', async () => {
       const btn = document.getElementById('btn-create-room');
       btn.disabled = true;
@@ -133,7 +378,6 @@
       }
     });
 
-    // Join room → go to phone.html with room code
     document.getElementById('btn-join-room').addEventListener('click', joinRoom);
     codeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') joinRoom();
@@ -157,5 +401,6 @@
       }
     }
   </script>
+
 </body>
 </html>

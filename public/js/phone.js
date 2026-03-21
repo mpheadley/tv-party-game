@@ -10,7 +10,7 @@
   let isHost = false;
   let isTestMode = false;
   let myToken = sessionStorage.getItem('hottake-token');
-  let currentGameMode = 'hot-take';
+  let currentGameMode = 'speed-drawing';
   let tvConnected = false;
 
   // Room code from URL
@@ -438,6 +438,7 @@
 
   function setHost() {
     isHost = true;
+    socket.emit('set-game-mode', 'speed-drawing');
     document.getElementById('host-lobby-controls').classList.remove('hidden');
     document.getElementById('non-host-status').classList.add('hidden');
     document.querySelectorAll('.host-only').forEach(el => el.classList.remove('hidden'));
@@ -1247,23 +1248,12 @@
   }
 
   document.getElementById('btn-host-start').addEventListener('click', () => {
-    if (tvConnected) {
-      startGame();
+    if (!tvConnected) {
+      window.open(`/tv.html?room=${roomCode}`, '_blank');
+      setTimeout(startGame, 1500);
     } else {
-      document.getElementById('tv-prompt-modal').classList.remove('hidden');
+      startGame();
     }
-  });
-
-  document.getElementById('btn-tv-open-start').addEventListener('click', () => {
-    document.getElementById('tv-prompt-modal').classList.add('hidden');
-    window.open(`/tv.html?room=${roomCode}`, '_blank');
-    // Give TV a moment to connect before starting
-    setTimeout(startGame, 1500);
-  });
-
-  document.getElementById('btn-tv-skip-start').addEventListener('click', () => {
-    document.getElementById('tv-prompt-modal').classList.add('hidden');
-    startGame();
   });
 
   document.getElementById('btn-host-next').addEventListener('click', () => {

@@ -20,7 +20,7 @@ const { createBots } = require('./src/bots');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, { maxHttpBufferSize: 4e6 }); // 4MB — handles phone canvas drawings
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -655,7 +655,10 @@ io.on('connection', (socket) => {
       let answer = null;
       if (room.gameMode === 'speed-drawing') {
         const imageData = speedDrawingMode.validateDrawing(data);
-        if (!imageData) return;
+        if (!imageData) {
+          socket.emit('error-msg', 'Drawing too large or invalid. Try again.');
+          return;
+        }
         answer = imageData;
         room.drawings[socket.id] = imageData;
       } else {

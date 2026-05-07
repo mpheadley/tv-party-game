@@ -547,9 +547,9 @@
             document.getElementById('vote-prompt-text').textContent = data.prompt || '';
             const grid = document.getElementById('tv-answers');
 
-            // Render text answers or drawings based on type
-            if (data.answers.length > 0 && data.answers[0].text && data.answers[0].text.startsWith('data:image')) {
-              // Drawing mode
+            // Use gameMode from server as the source of truth for rendering
+            const isDrawingVote = data.gameMode === 'speed-drawing';
+            if (isDrawingVote) {
               grid.innerHTML = data.answers.map((a, i) =>
                 `<div class="answer-card drawing-card" style="--card-index: ${i}">
                   <img src="${a.text}" alt="Drawing ${i+1}" style="width:100%; height:100%; object-fit:contain;">
@@ -585,9 +585,9 @@
           document.getElementById('tv-commentary').textContent = data.commentary || '';
           const rGrid = document.getElementById('results-answers');
 
-          // Render text answers or drawings based on type
-          if (data.results.length > 0 && data.results[0].text && data.results[0].text.startsWith('data:image')) {
-            // Drawing mode
+          // Use gameMode from server as the source of truth for rendering
+          const isDrawingResults = data.gameMode === 'speed-drawing';
+          if (isDrawingResults) {
             rGrid.innerHTML = data.results.map((r, i) =>
               `<div class="answer-card drawing-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
                 <img src="${r.text}" alt="Drawing" style="width:100%; height:100%; object-fit:contain;">

@@ -12,6 +12,7 @@
   let myToken = sessionStorage.getItem('hottake-token');
   let currentGameMode = 'speed-drawing';
   let tvConnected = false;
+  let pendingJoin = null; // { name, avatar, roomCode } — retried on reconnect
 
   // Room code from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -239,7 +240,10 @@
   });
 
   socket.on('connect_error', () => {
-    showConnectionStatus('error', '❌ Connection error');
+    const msg = pendingJoin && !myId
+      ? '⏳ Server is waking up... retrying'
+      : '❌ Connection error';
+    showConnectionStatus('error', msg);
   });
 
   socket.on('reconnected', (data) => {
@@ -388,10 +392,24 @@
     }
     ensureAudio();
     btnJoin.disabled = true;
+    pendingJoin = { name, avatar: selectedAvatar, roomCode };
     socket.emit('join', { name, avatar: selectedAvatar, roomCode });
   }
 
+  // Auto-retry join after cold-start reconnect (Render free tier wakes up slowly)
+  socket.on('connect', () => {
+    if (pendingJoin && !myId) {
+      showConnectionStatus('reconnected', '🔄 Reconnected — retrying join...');
+      setTimeout(() => {
+        if (pendingJoin && !myId) {
+          socket.emit('join', pendingJoin);
+        }
+      }, 500);
+    }
+  });
+
   socket.on('joined', (data) => {
+    pendingJoin = null; // join succeeded, no retry needed
     myToken = data.token;
     if (data.testMode) isTestMode = true;
     sessionStorage.setItem('hottake-token', data.token);

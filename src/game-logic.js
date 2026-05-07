@@ -47,7 +47,7 @@ function createGameState() {
  * Start a new round
  * Called by mode-specific handlers
  */
-function startRound(game, pickPrompt, io) {
+function startRound(game, pickPrompt, io, onTimerExpire) {
   game.round++;
   game.phase = 'prompt';
   game.currentPrompt = pickPrompt();
@@ -86,14 +86,18 @@ function startRound(game, pickPrompt, io) {
     if (game.phase === 'prompt') {
       const answered = Object.keys(game.answers).length;
       const total = Object.keys(game.players).length;
-      console.log(`[ROUND ${game.round}] TIMER EXPIRED — ${answered}/${total} answered, auto-advancing to vote`);
+      console.log(`[ROUND ${game.round}] TIMER EXPIRED — ${answered}/${total} answered, auto-advancing`);
       for (const id of Object.keys(game.players)) {
-        if (!game.answers[id]) {
+        if (!game.answers[id] && game.gameMode !== 'speed-drawing') {
           game.answers[id] = '(no answer)';
         }
       }
       io.emit('sound', 'times-up');
-      startVoting(game, io);
+      if (onTimerExpire) {
+        onTimerExpire(game, io);
+      } else {
+        startVoting(game, io);
+      }
     } else {
       console.log(`[ROUND ${game.round}] TIMER EXPIRED but phase is '${game.phase}', ignoring`);
     }
@@ -375,11 +379,107 @@ function getRandomCommentary() {
   return SNARKY_COMMENTARY[Math.floor(Math.random() * SNARKY_COMMENTARY.length)];
 }
 
+/**
+ * AI Judge phase — replaces vote phase for speed-drawing
+ * Calls Claude to score drawings, emits results directly
+ */
+async function startAiJudging(game, io, judgeRound, onRoundSaved) {
+  clearTimeout(game.roundTimer);
+  game.phase = 'judging';
+  io.emit('sound', 'vote-open');
+
+  // Remove drawings from disconnected players
+  for (const id of Object.keys(game.drawings)) {
+    if (!game.players[id]) delete game.drawings[id];
+  }
+
+  const drawingEntries = Object.entries(game.drawings).map(([id, imageData]) => ({
+    playerId: id,
+    playerName: game.players[id]?.name || 'Unknown',
+    imageData,
+  }));
+
+  // Tell TV to show "Judge is thinking..." while Claude works
+  if (game.tvSocket) {
+    io.to(game.tvSocket).emit('phase', {
+      phase: 'judging',
+      prompt: game.currentPrompt,
+      gameMode: game.gameMode,
+      round: game.round,
+      totalRounds: game.totalRounds,
+      playerCount: drawingEntries.length,
+    });
+  }
+  // Tell phones to wait
+  for (const playerId of Object.keys(game.players)) {
+    io.to(playerId).emit('phase', { phase: 'judging', prompt: game.currentPrompt });
+  }
+
+  let judgeData = null;
+  try {
+    judgeData = await judgeRound(game.currentPrompt, drawingEntries);
+  } catch (err) {
+    console.error('[AI JUDGE] Error:', err.message);
+  }
+
+  // Map judge results back to player IDs, award points
+  game.phase = 'results';
+  const scoreMap = {}; // playerId → total ai score
+
+  if (judgeData?.results) {
+    for (const r of judgeData.results) {
+      if (game.players[r.playerId]) {
+        const pts = Math.round((r.total || 0) / 3); // scale 0-30 → 0-10 points
+        game.players[r.playerId].score += pts;
+        scoreMap[r.playerId] = { total: r.total, pts, comment: r.comment, scores: r.scores };
+      }
+    }
+  }
+
+  const scoreboard = Object.entries(game.players)
+    .map(([id, p]) => ({ id, name: p.name, score: p.score, avatar: p.avatar }))
+    .sort((a, b) => b.score - a.score);
+
+  // Build results payload
+  const results = drawingEntries.map(d => {
+    const judged = scoreMap[d.playerId] || {};
+    return {
+      text: d.imageData,
+      author: d.playerName,
+      avatar: game.players[d.playerId]?.avatar || '',
+      votes: judged.pts || 0,
+      aiScore: judged.total || 0,
+      aiComment: judged.comment || '',
+      scores: judged.scores || null,
+    };
+  }).sort((a, b) => b.aiScore - a.aiScore);
+
+  const payload = {
+    phase: 'results',
+    results,
+    scoreboard,
+    round: game.round,
+    totalRounds: game.totalRounds,
+    gameMode: game.gameMode,
+    verdict: judgeData?.verdict || getRandomCommentary(),
+    aiJudged: true,
+  };
+
+  io.emit('phase', payload);
+  io.emit('sound', 'results');
+
+  // Persist drawings to history
+  if (onRoundSaved) {
+    onRoundSaved(results, scoreMap);
+  }
+}
+
 module.exports = {
   createGameState,
   startRound,
   checkAllAnswered,
   startVoting,
+  startAiJudging,
   checkAllVoted,
   tallyAndShowResults,
   endGame,

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bad Art Club — Hall of Shame</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f0f23;
+      color: #e8e8e8;
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 { font-size: 2.5rem; color: #506be6; }
+    header p { color: #888; margin-top: 0.5rem; }
+    nav { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
+    nav button {
+      background: #1a1a2e; border: 1px solid #333; color: #e8e8e8;
+      padding: 0.5rem 1.25rem; border-radius: 2rem; cursor: pointer; font-size: 0.9rem;
+      transition: background 0.15s;
+    }
+    nav button.active, nav button:hover { background: #506be6; border-color: #506be6; }
+
+    #content { max-width: 1100px; margin: 0 auto; }
+
+    /* Drawing grid */
+    .drawing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+    .drawing-card {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4e;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      transition: transform 0.15s;
+    }
+    .drawing-card:hover { transform: translateY(-3px); }
+    .drawing-card img {
+      width: 100%; aspect-ratio: 1;
+      object-fit: contain;
+      background: #fff;
+      display: block;
+    }
+    .drawing-meta {
+      padding: 0.75rem;
+    }
+    .drawing-prompt {
+      font-size: 0.75rem; color: #888; margin-bottom: 0.3rem;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .drawing-author { font-weight: 600; font-size: 0.95rem; }
+    .drawing-score {
+      margin-top: 0.4rem;
+      font-size: 0.8rem; color: #506be6;
+    }
+    .drawing-comment {
+      margin-top: 0.4rem;
+      font-size: 0.78rem; color: #aaa; font-style: italic;
+      line-height: 1.4;
+    }
+
+    /* Leaderboard */
+    .leaderboard {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .leader-row {
+      display: flex; align-items: center; gap: 1rem;
+      background: #1a1a2e; border: 1px solid #2a2a4e;
+      border-radius: 0.75rem; padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .leader-rank { font-size: 1.5rem; width: 2rem; text-align: center; }
+    .leader-avatar { font-size: 2rem; }
+    .leader-info { flex: 1; }
+    .leader-name { font-weight: 700; font-size: 1.05rem; }
+    .leader-sub { font-size: 0.8rem; color: #888; margin-top: 0.2rem; }
+    .leader-score { font-size: 1.4rem; font-weight: 800; color: #506be6; }
+
+    .back-link {
+      display: inline-block; margin-bottom: 1.5rem;
+      color: #506be6; text-decoration: none; font-size: 0.9rem;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    .empty { text-align: center; color: #555; padding: 4rem 2rem; font-size: 1.1rem; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="back-link">← Back to game</a>
+    <h1>🎨 Bad Art Club</h1>
+    <p>Hall of Shame — every masterpiece, preserved forever</p>
+    <nav>
+      <button class="active" id="tab-recent" onclick="showTab('recent')">Recent</button>
+      <button id="tab-top" onclick="showTab('top')">Top Rated</button>
+      <button id="tab-leaderboard" onclick="showTab('leaderboard')">Leaderboard</button>
+    </nav>
+  </header>
+
+  <div id="content">
+    <div id="panel-recent">
+      <div class="drawing-grid" id="grid-recent"></div>
+    </div>
+    <div id="panel-top" class="hidden">
+      <div class="drawing-grid" id="grid-top"></div>
+    </div>
+    <div id="panel-leaderboard" class="hidden">
+      <div class="leaderboard" id="list-leaderboard"></div>
+    </div>
+  </div>
+
+  <script>
+    const RANKS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+
+    async function loadRecent() {
+      const res = await fetch('/api/gallery/drawings');
+      const data = await res.json();
+      const grid = document.getElementById('grid-recent');
+      if (!data.length) { grid.innerHTML = '<p class="empty">No drawings yet — play a round of Speed Drawing to get started!</p>'; return; }
+      grid.innerHTML = data.map(d => drawingCard(d)).join('');
+    }
+
+    async function loadTop() {
+      const res = await fetch('/api/gallery/top');
+      const data = await res.json();
+      const grid = document.getElementById('grid-top');
+      if (!data.length) { grid.innerHTML = '<p class="empty">No AI-judged drawings yet.</p>'; return; }
+      grid.innerHTML = data.map(d => drawingCard(d)).join('');
+    }
+
+    async function loadLeaderboard() {
+      const res = await fetch('/api/gallery/leaderboard');
+      const data = await res.json();
+      const list = document.getElementById('list-leaderboard');
+      if (!data.length) { list.innerHTML = '<p class="empty">No scores yet — finish a game to appear here!</p>'; return; }
+      list.innerHTML = data.map((p, i) => `
+        <div class="leader-row">
+          <div class="leader-rank">${RANKS[i] || i + 1}</div>
+          <div class="leader-avatar">${p.player_avatar || '🎨'}</div>
+          <div class="leader-info">
+            <div class="leader-name">${esc(p.player_name)}</div>
+            <div class="leader-sub">${p.games_played} game${p.games_played !== 1 ? 's' : ''} · best: ${p.best_game} pts</div>
+          </div>
+          <div class="leader-score">${p.lifetime_score}</div>
+        </div>
+      `).join('');
+    }
+
+    function drawingCard(d) {
+      const score = d.ai_score != null ? `⭐ ${d.ai_score}/30` : '';
+      const comment = d.ai_comment ? `<div class="drawing-comment">"${esc(d.ai_comment)}"</div>` : '';
+      return `
+        <div class="drawing-card">
+          <img src="${d.image_data}" alt="Drawing by ${esc(d.player_name)}" loading="lazy">
+          <div class="drawing-meta">
+            <div class="drawing-prompt">${esc(d.prompt)}</div>
+            <div class="drawing-author">${d.player_avatar || '🎨'} ${esc(d.player_name)}</div>
+            ${score ? `<div class="drawing-score">${score}</div>` : ''}
+            ${comment}
+          </div>
+        </div>`;
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function showTab(tab) {
+      ['recent', 'top', 'leaderboard'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+      });
+      if (tab === 'top') loadTop();
+      if (tab === 'leaderboard') loadLeaderboard();
+    }
+
+    loadRecent();
+  </script>
+</body>
+</html>

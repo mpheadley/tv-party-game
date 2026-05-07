@@ -17,6 +17,8 @@ const pictionaryMode = require('./src/modes/pictionary');
 const { ReconnectionManager, handlePlayerDisconnect, handlePlayerReconnect } = require('./src/reconnection-handler');
 const nightFallsMode = require('./src/modes/night-falls');
 const { createBots } = require('./src/bots');
+const { judgeRound } = require('./src/ai-judge');
+const history = require('./src/history');
 
 const app = express();
 const server = http.createServer(app);
@@ -169,6 +171,35 @@ app.post('/api/remove-bots', (req, res) => {
   }
 });
 
+// ── Gallery & History API ──
+
+app.get('/api/gallery/drawings', (req, res) => {
+  try {
+    const drawings = history.getRecentDrawings(24);
+    res.json(drawings);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+app.get('/api/gallery/top', (req, res) => {
+  try {
+    const drawings = history.getTopDrawings(12);
+    res.json(drawings);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+app.get('/api/gallery/leaderboard', (req, res) => {
+  try {
+    const leaders = history.getAllTimeLeaderboard(10);
+    res.json(leaders);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
 // ── Room Helper Functions ──
 
 function getPlayerList(room) {
@@ -211,6 +242,31 @@ function emitToRoom(room, event, data) {
   for (const playerId of Object.keys(room.players)) {
     io.to(playerId).emit(event, data);
   }
+}
+
+// Returns a callback that saves round drawings to history DB
+function makeRoundSaver(room) {
+  return (results, scoreMap) => {
+    if (!room.historyGameId) return;
+    try {
+      for (const r of results) {
+        const judged = scoreMap[Object.keys(room.players).find(id => room.players[id]?.name === r.author)] || {};
+        history.saveDrawing({
+          gameId: room.historyGameId,
+          roundNum: room.round,
+          prompt: room.currentPrompt,
+          playerName: r.author,
+          playerAvatar: r.avatar,
+          imageData: r.text,
+          votes: r.votes || 0,
+          aiScore: r.aiScore || null,
+          aiComment: r.aiComment || null,
+        });
+      }
+    } catch (e) {
+      console.error('[HISTORY] saveDrawing error:', e.message);
+    }
+  };
 }
 
 function migrateSocketId(room, oldId, newId) {
@@ -577,6 +633,13 @@ io.on('connection', (socket) => {
     }
     emitToRoom(room, 'sound', 'round-start');
 
+    // Start history tracking for this game
+    try {
+      room.historyGameId = history.startGame(room.code, room.gameMode);
+    } catch (e) {
+      console.error('[HISTORY] startGame error:', e.message);
+    }
+
     if (room.gameMode === 'pictionary') {
       room.currentDrawer = pictionaryMode.assignDrawer(room, teamsModule);
     }
@@ -592,7 +655,10 @@ io.on('connection', (socket) => {
 
     // Use emitToRoom wrapper instead of io directly
     const roomIo = createRoomEmitter(room);
-    gameLogic.startRound(room, pickPromptFn, roomIo);
+    const onTimerExpire = room.gameMode === 'speed-drawing'
+      ? (g, rIo) => gameLogic.startAiJudging(g, rIo, judgeRound, makeRoundSaver(g))
+      : null;
+    gameLogic.startRound(room, pickPromptFn, roomIo, onTimerExpire);
   });
 
   // Player submits answer
@@ -681,10 +747,14 @@ io.on('connection', (socket) => {
       });
 
       if (gameLogic.checkAllAnswered(room)) {
-        console.log(`[ANSWER] ALL ANSWERED — ${Object.keys(room.answers).length}/${Object.keys(room.players).length}, advancing to vote`);
+        console.log(`[ANSWER] ALL ANSWERED — ${Object.keys(room.answers).length}/${Object.keys(room.players).length}, advancing`);
         clearTimeout(room.roundTimer);
         const roomIo = createRoomEmitter(room);
-        gameLogic.startVoting(room, roomIo);
+        if (room.gameMode === 'speed-drawing') {
+          gameLogic.startAiJudging(room, roomIo, judgeRound, makeRoundSaver(room));
+        } else {
+          gameLogic.startVoting(room, roomIo);
+        }
       }
     }
   });
@@ -823,6 +893,16 @@ io.on('connection', (socket) => {
 
     if (room.round >= room.totalRounds) {
       const roomIo = createRoomEmitter(room);
+      // Save game history before ending
+      if (room.historyGameId) {
+        try {
+          const scoreboard = Object.values(room.players).map(p => ({ name: p.name, avatar: p.avatar, score: p.score }));
+          history.endGame(room.historyGameId, room.round);
+          history.savePlayerScores(room.historyGameId, scoreboard);
+        } catch (e) {
+          console.error('[HISTORY] endGame error:', e.message);
+        }
+      }
       gameLogic.endGame(room, roomIo);
     } else {
       emitToRoom(room, 'sound', 'round-start');
@@ -841,7 +921,10 @@ io.on('connection', (socket) => {
       }
 
       const roomIo = createRoomEmitter(room);
-      gameLogic.startRound(room, pickPromptFn, roomIo);
+      const onTimerExpireNext = room.gameMode === 'speed-drawing'
+        ? (g, rIo) => gameLogic.startAiJudging(g, rIo, judgeRound, makeRoundSaver(g))
+        : null;
+      gameLogic.startRound(room, pickPromptFn, roomIo, onTimerExpireNext);
     }
   });
 

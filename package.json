@@ -7,6 +7,8 @@
   },
   "description": "Jackbox-style party game — TV + phone controllers over WebSocket",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.0",
+    "better-sqlite3": "^12.9.0",
     "express": "^5.2.1",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",

@@ -509,6 +509,18 @@
           }, 1000);
           break;
 
+        case 'judging':
+          showScreen('vote'); // reuse vote screen as a waiting screen
+          document.getElementById('vote-prompt-text').textContent = `Prompt: "${data.prompt}"`;
+          document.getElementById('tv-answers').innerHTML = `
+            <div style="grid-column: 1/-1; text-align:center; padding: 3rem 1rem;">
+              <div style="font-size:4rem; animation: spin 2s linear infinite; display:inline-block;">🎨</div>
+              <p style="font-size:1.4rem; margin-top:1rem; color:#506be6;">Judge Splatter is reviewing ${data.playerCount || ''} drawing${data.playerCount !== 1 ? 's' : ''}…</p>
+              <p style="color:#888; margin-top:0.5rem;">Claude is scoring accuracy, absurdity, and artistic merit</p>
+            </div>`;
+          document.getElementById('vote-status').textContent = '';
+          break;
+
         case 'vote':
           showScreen('vote');
 
@@ -582,19 +594,36 @@
           playSound('reveal');
           document.getElementById('results-round').textContent =
             `🏅 Round ${data.round} of ${data.totalRounds} — Results`;
-          document.getElementById('tv-commentary').textContent = data.commentary || '';
+          // AI judge uses verdict; player voting uses commentary
+          document.getElementById('tv-commentary').textContent =
+            data.verdict || data.commentary || '';
           const rGrid = document.getElementById('results-answers');
 
           // Use gameMode from server as the source of truth for rendering
           const isDrawingResults = data.gameMode === 'speed-drawing';
           if (isDrawingResults) {
-            rGrid.innerHTML = data.results.map((r, i) =>
-              `<div class="answer-card drawing-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
-                <img src="${r.text}" alt="Drawing" style="width:100%; height:100%; object-fit:contain;">
-                <div class="vote-count">${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
-                <div class="author">${r.avatar} ${escapeHtml(r.author)}</div>
-              </div>`
-            ).join('');
+            if (data.aiJudged) {
+              rGrid.innerHTML = data.results.map((r, i) => {
+                const scoreBreakdown = r.scores
+                  ? `Acc ${r.scores.accuracy} · Abs ${r.scores.absurdity} · Merit ${r.scores.merit}`
+                  : '';
+                return `<div class="answer-card drawing-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
+                  <img src="${r.text}" alt="Drawing" style="width:100%; height:180px; object-fit:contain;">
+                  <div class="vote-count" style="color:#48dbfb">⭐ ${r.aiScore || 0}/30${i === 0 ? ' 🏆' : ''}</div>
+                  ${scoreBreakdown ? `<div style="font-size:0.7rem;color:#888;margin-top:2px">${escapeHtml(scoreBreakdown)}</div>` : ''}
+                  <div class="author">${r.avatar} ${escapeHtml(r.author)}</div>
+                  ${r.aiComment ? `<div style="font-size:0.75rem;color:#aaa;font-style:italic;padding:0.3rem 0.5rem;line-height:1.3">"${escapeHtml(r.aiComment)}"</div>` : ''}
+                </div>`;
+              }).join('');
+            } else {
+              rGrid.innerHTML = data.results.map((r, i) =>
+                `<div class="answer-card drawing-card revealed stagger-reveal" style="--reveal-delay: ${i * 0.4}s">
+                  <img src="${r.text}" alt="Drawing" style="width:100%; height:100%; object-fit:contain;">
+                  <div class="vote-count">${'⭐'.repeat(r.votes)}${r.votes === 0 ? '—' : ''} ${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
+                  <div class="author">${r.avatar} ${escapeHtml(r.author)}</div>
+                </div>`
+              ).join('');
+            }
           } else {
             // Text mode
             rGrid.innerHTML = data.results.map((r, i) =>
